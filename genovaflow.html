@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#7c3aed">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GenovaFlow">
+<title>GenovaFlow v1.0</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0a1a;--sidebar:#0a0714;--card:#130d2a;--border:#2d1f4a;
+  --accent:#7c3aed;--accent2:#a855f7;--gold:#f59e0b;--red:#ef4444;
+  --blue:#3b82f6;--green:#10b981;
+  --text:#f1f5f9;--muted:#8b7aa8;--dim:#3d2f5a;
+  --row:#100c20;--row-h:#1a1235;
+  --radius:10px;--font:'DM Mono',monospace;--serif:'Crimson Text',Georgia,serif;
+}
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap');
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13px}
+#app{display:flex;height:100vh}
+#sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:transform .3s;z-index:100}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid var(--border)}
+.logo-icon{font-size:24px;margin-bottom:6px}
+.logo-name{font-size:14px;font-weight:500;color:var(--accent2);letter-spacing:.5px}
+.logo-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.logo-ver{font-size:9px;color:var(--accent);letter-spacing:1px;margin-top:2px}
+.year-block{padding:12px 16px;border-bottom:1px solid var(--border)}
+.year-label{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.year-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--gold);font-family:var(--serif);font-size:17px;font-weight:600;outline:none;cursor:pointer}
+nav{flex:1;padding:8px 0;overflow-y:auto}
+.nav-section{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:10px 18px 4px;margin-top:4px}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 18px;background:none;border:none;border-left:3px solid transparent;color:var(--muted);font-family:var(--font);font-size:12px;cursor:pointer;text-align:left;transition:all .15s}
+.nav-btn:hover{background:#ffffff08;color:var(--text)}
+.nav-btn.active{background:rgba(124,58,237,.15);border-left-color:var(--accent);color:var(--accent2)}
+.nav-btn .icon{font-size:15px;width:20px;text-align:center}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.sidebar-net{font-family:var(--serif);font-size:15px;font-weight:600}
+.sidebar-meta{font-size:10px;color:var(--muted);margin-top:2px}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{padding:12px 22px;border-bottom:1px solid var(--border);background:var(--sidebar);display:flex;align-items:center;gap:12px;min-height:52px;flex-wrap:wrap}
+.topbar-title{font-size:14px;font-weight:500;flex:1}
+.topbar-sub{font-size:10px;color:var(--muted);margin-top:1px}
+#sync-msg{font-size:11px;color:var(--accent2);max-width:280px}
+#sync-err{font-size:11px;color:var(--red);max-width:280px}
+#content{flex:1;overflow-y:auto;padding:22px;background:var(--bg)}
+.btn{border:none;border-radius:8px;padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#6d28d9}.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{color:var(--text);border-color:var(--muted)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.btn-purple{background:rgba(124,58,237,.15);color:var(--accent2);border:1px solid rgba(124,58,237,.3)}.btn-purple:hover{background:rgba(124,58,237,.25)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.card-sm{padding:12px 16px}
+.grid{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.kpi{flex:1;min-width:140px}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.kpi-val{font-family:var(--serif);font-size:24px;font-weight:600}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:3px}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:7px 10px;border-bottom:1px solid rgba(45,31,74,.5);font-size:12px}
+tr:hover td{background:var(--row-h)}
+.section-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:14px}
+input,select,textarea{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 11px;color:var(--text);font-family:var(--font);font-size:12px;outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+input::placeholder{color:var(--muted)}
+.input-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+.tag{display:inline-block;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;letter-spacing:.3px}
+.tag-green{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.tag-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.tag-gold{background:rgba(245,158,11,.12);color:var(--gold);border:1px solid rgba(245,158,11,.3)}
+.tag-blue{background:rgba(59,130,246,.12);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.tag-purple{background:rgba(124,58,237,.12);color:var(--accent2);border:1px solid rgba(124,58,237,.3)}
+.tag-muted{background:rgba(139,122,168,.12);color:var(--muted);border:1px solid rgba(139,122,168,.3)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(4px)}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:560px;width:90%;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:3px}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-title{font-size:16px;color:var(--text);margin-bottom:6px}
+.chart-wrap{width:100%;overflow:hidden;margin-top:8px}
+.chart-svg{width:100%;display:block}
+.ai-bubble{border-radius:12px;padding:14px 16px;font-size:12px;line-height:1.7;margin-bottom:10px;max-width:92%}
+.ai-bubble.ai{background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);align-self:flex-start}
+.ai-bubble.user{background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);align-self:flex-end;margin-left:auto}
+.ai-typing{display:flex;gap:4px;align-items:center;padding:8px 0}
+.ai-dot{width:6px;height:6px;background:var(--accent2);border-radius:50%;animation:bounce .8s infinite}
+.ai-dot:nth-child(2){animation-delay:.15s}.ai-dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:12px;transition:transform .3s;z-index:9999;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px}
+.sidebar-close{display:none;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;position:absolute;top:14px;right:14px}
+.pl-row td:first-child{padding-left:24px;color:var(--muted)}
+.pl-row td:last-child{text-align:right}
+.pl-section td{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:2px;text-transform:uppercase;background:var(--row);padding:7px 10px}
+.pl-total td{font-family:var(--serif);font-size:14px;font-weight:600;border-top:1px solid var(--border);padding:10px}
+.pl-net td{font-family:var(--serif);font-size:18px;font-weight:600;border-top:2px solid var(--border);padding:12px 10px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px}
+@media(max-width:640px){
+  #sidebar{position:fixed;left:0;top:0;height:100%;transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  .sidebar-close{display:block}
+  #menu-toggle{display:block}
+  #content{padding:14px}
+  .kpi{min-width:calc(50% - 8px)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+    <div class="sidebar-logo">
+      <div class="logo-icon">💜</div>
+      <div class="logo-name">GenovaFlow</div>
+      <div class="logo-sub" id="sidebar-company">Genova Beauty & Equipment</div>
+      <div class="logo-ver">v1.0 · AI Edition</div>
+    </div>
+    <div class="year-block">
+      <div class="year-label">Año Fiscal</div>
+      <select class="year-select" id="year-select" onchange="changeYear(this.value)"></select>
+    </div>
+    <nav id="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-net" id="sidebar-net">—</div>
+      <div class="sidebar-meta" id="sidebar-meta">Utilidad neta estimada</div>
+    </div>
+  </aside>
+  <div id="main">
+    <div id="topbar">
+      <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <div style="flex:1">
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-sub" id="topbar-sub">LLC · Puerto Rico · IVU 10.5% + 1% Municipal</div>
+      </div>
+      <span id="sync-msg"></span><span id="sync-err"></span>
+      <button class="btn btn-purple btn-sm" onclick="runMonthlyAnalysis()">🤖 Analizar</button>
+      <button class="btn btn-primary" id="sync-btn" onclick="showModal('import-json')">⬆️ Importar</button>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="modal-container"></div>
+
+<script>
+const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+const PROXY_URL = "https://contaflow-ai.josecapotes.workers.dev";
+
+const DEFAULT_COA = [
+  {code:"1000",name:"ACTIVOS",type:"asset",group:"header"},
+  {code:"1010",name:"Banco Popular Checking",type:"asset",group:"bank"},
+  {code:"1020",name:"Banco Popular Savings",type:"asset",group:"bank"},
+  {code:"1100",name:"Cuentas por Cobrar",type:"asset",group:"receivable"},
+  {code:"1200",name:"Inventario – Equipos Estética",type:"asset",group:"inventory"},
+  {code:"1300",name:"Equipos y Herramientas",type:"asset",group:"equipment"},
+  {code:"2000",name:"PASIVOS",type:"liability",group:"header"},
+  {code:"2100",name:"Tarjeta de Crédito",type:"liability",group:"credit"},
+  {code:"2200",name:"IVU por Pagar (10.5%)",type:"liability",group:"tax"},
+  {code:"2210",name:"IVU Municipal por Pagar (1%)",type:"liability",group:"tax"},
+  {code:"2300",name:"Préstamos por Pagar",type:"liability",group:"loan"},
+  {code:"3000",name:"PATRIMONIO",type:"equity",group:"header"},
+  {code:"3100",name:"Aportación de Capital",type:"equity",group:"capital"},
+  {code:"3900",name:"Utilidades Retenidas",type:"equity",group:"retained"},
+  {code:"4000",name:"INGRESOS",type:"revenue",group:"header"},
+  {code:"4010",name:"Ventas – Equipos de Estética",type:"revenue",group:"sales"},
+  {code:"4020",name:"Servicio Técnico – Reparaciones",type:"revenue",group:"service"},
+  {code:"4030",name:"Distribución – Mayoreo",type:"revenue",group:"distribution"},
+  {code:"4040",name:"Accesorios y Repuestos",type:"revenue",group:"parts"},
+  {code:"4090",name:"Otros Ingresos",type:"revenue",group:"other"},
+  {code:"5000",name:"COSTO DE VENTAS",type:"expense",group:"header"},
+  {code:"5010",name:"Costo de Equipos Vendidos",type:"expense",group:"cogs"},
+  {code:"5020",name:"Costo de Repuestos",type:"expense",group:"cogs"},
+  {code:"6000",name:"GASTOS OPERATIVOS",type:"expense",group:"header"},
+  {code:"6100",name:"Sueldos y Salarios",type:"expense",group:"payroll"},
+  {code:"6200",name:"Alquiler / Renta",type:"expense",group:"rent"},
+  {code:"6300",name:"Servicios Públicos (Luz, Agua, Internet)",type:"expense",group:"utilities"},
+  {code:"6400",name:"Seguro",type:"expense",group:"insurance"},
+  {code:"6500",name:"Marketing & Publicidad",type:"expense",group:"marketing"},
+  {code:"6600",name:"Transporte y Entregas",type:"expense",group:"transport"},
+  {code:"6700",name:"Software & Suscripciones",type:"expense",group:"software"},
+  {code:"6800",name:"Servicios Profesionales (CPA, Legal)",type:"expense",group:"professional"},
+  {code:"6900",name:"Mantenimiento y Reparaciones",type:"expense",group:"maintenance"},
+  {code:"7000",name:"Gastos Bancarios",type:"expense",group:"banking"},
+  {code:"7100",name:"Gastos Varios",type:"expense",group:"misc"},
+  {code:"8000",name:"IMPUESTOS",type:"expense",group:"header"},
+  {code:"8100",name:"IVU Estatal (10.5%)",type:"expense",group:"tax"},
+  {code:"8200",name:"IVU Municipal (1%)",type:"expense",group:"tax"},
+  {code:"8300",name:"Contribución sobre Ingresos PR",type:"expense",group:"tax"},
+];
+
+const AUTO_RULES = [
+  {re:/banco popular|bppr/i, code:"1010"},
+  {re:/seguro|insurance/i, code:"6400"},
+  {re:/facebook|instagram|google ads|publicidad/i, code:"6500"},
+  {re:/delivery|fedex|ups|correo|envio|transporte/i, code:"6600"},
+  {re:/zoho|dropbox|software|suscripcion/i, code:"6700"},
+  {re:/cpa|abogado|legal|contable/i, code:"6800"},
+  {re:/mantenimiento|reparacion/i, code:"6900"},
+  {re:/luz|apa|water|internet|claro|liberty/i, code:"6300"},
+  {re:/alquiler|renta|rent/i, code:"6200"},
+  {re:/nomina|sueldo|salario|payroll/i, code:"6100"},
+  {re:/ivu|sales tax/i, code:"8100"},
+];
+const AUTO_INCOME = [
+  {re:/venta.*equipo|equipo.*venta/i, code:"4010"},
+  {re:/servicio.*tecnico|reparacion|repair/i, code:"4020"},
+  {re:/mayoreo|distribucion/i, code:"4030"},
+  {re:/repuesto|accesorio|parts/i, code:"4040"},
+];
+
+function autoCategory(tx){
+  const t=`${tx.description||''} ${tx.counterparty||''}`.toLowerCase();
+  if(tx.amount>0){for(const r of AUTO_INCOME)if(r.re.test(t))return r.code;return"4090";}
+  for(const r of AUTO_RULES)if(r.re.test(t))return r.code;return"7100";
+}
+
+const TABS=[
+  {id:"dashboard",icon:"📊",label:"Dashboard",s:"reportes"},
+  {id:"pl",icon:"📈",label:"P&L",s:"reportes"},
+  {id:"balance",icon:"⚖️",label:"Balance General",s:"reportes"},
+  {id:"taxes",icon:"🧾",label:"IVU & Impuestos",s:"reportes"},
+  {id:"txns",icon:"💳",label:"Transacciones",s:"datos"},
+  {id:"coa",icon:"📋",label:"Plan Cuentas",s:"datos"},
+  {id:"ai",icon:"🤖",label:"Asistente IA",s:"ia"},
+  {id:"settings",icon:"⚙️",label:"Configuración",s:"sistema"},
+];
+
+const MONTHS=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const TYPE_COLOR={revenue:"#10b981",expense:"#ef4444",asset:"#3b82f6",liability:"#8b5cf6",equity:"#f59e0b"};
+const QUARTERS=[{label:"Q1",months:[0,1,2]},{label:"Q2",months:[3,4,5]},{label:"Q3",months:[6,7,8]},{label:"Q4",months:[9,10,11]}];
+const SEC_LABELS={reportes:"📊 Reportes",datos:"📁 Datos",ia:"✨ IA",sistema:"⚙️ Sistema"};
+
+// IVU PR
+const IVU_ESTATAL = 0.105;
+const IVU_MUNICIPAL = 0.01;
+const IVU_TOTAL = IVU_ESTATAL + IVU_MUNICIPAL;
+
+let S={
+  tab:"dashboard", year:2025,
+  settings:{companyName:"Genova Beauty & Equipment, LLC",state:"Puerto Rico",entity:"LLC",currency:"USD"},
+  coa:DEFAULT_COA,
+  bankAccounts:[
+    {id:"bp001",name:"Banco Popular Checking",bank:"Banco Popular",type:"checking",last4:"",color:"#7c3aed",note:"Cuenta principal"},
+    {id:"bp002",name:"Banco Popular Savings",bank:"Banco Popular",type:"savings",last4:"",color:"#a855f7",note:"Ahorros"},
+  ],
+  years:[2025],txns:[],balanceEntries:[],aiMessages:[],
+  filterSearch:"",filterCode:"",filterSign:"",
+};
+
+let db;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open("genovaflow",1);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains("store"))d.createObjectStore("store");};r.onsuccess=e=>{db=e.target.result;res()};r.onerror=()=>rej("DB error");});}
+function dbGet(k){return new Promise((res,rej)=>{const tx=db.transaction("store","readonly");const r=tx.objectStore("store").get(k);r.onsuccess=()=>res(r.result);r.onerror=rej});}
+function dbSet(k,v){return new Promise((res,rej)=>{const tx=db.transaction("store","readwrite");tx.objectStore("store").put(v,k);tx.oncomplete=res;tx.onerror=rej;});}
+
+async function loadState(){
+  try{
+    const s=await dbGet("settings");if(s)S.settings={...S.settings,...s};
+    const c=await dbGet("coa");if(c)S.coa=c;
+    const b=await dbGet("bankAccts");if(b)S.bankAccounts=b;
+    const y=await dbGet("years");if(y){S.years=y;S.year=y[y.length-1]||2025;}
+    const be=await dbGet("balanceEntries");if(be)S.balanceEntries=be;
+    const ai=await dbGet("aiMessages");if(ai)S.aiMessages=ai;
+    await loadYearTxns(S.year);
+  }catch(e){console.warn(e)}
+}
+async function saveSettings(){await dbSet("settings",S.settings)}
+async function saveCoa(){await dbSet("coa",S.coa)}
+async function saveBankAccts(){await dbSet("bankAccts",S.bankAccounts)}
+async function saveYears(){await dbSet("years",S.years)}
+async function saveTxns(){await dbSet(`txns:${S.year}`,S.txns)}
+async function saveBalanceEntries(){await dbSet("balanceEntries",S.balanceEntries)}
+async function saveAiMessages(){await dbSet("aiMessages",S.aiMessages)}
+async function loadYearTxns(yr){const t=await dbGet(`txns:${yr}`);S.txns=t||[];}
+
+function fmt(n,abs=false){const v=abs?Math.abs(n):n;return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(v)}
+function fmtDate(d){if(!d)return"";try{return new Date(d+"T00:00:00").toLocaleDateString("es-PR",{month:"short",day:"2-digit"})}catch{return d}}
+function fmtDateFull(d){if(!d)return"";try{return new Date(d+"T00:00:00").toLocaleDateString("es-PR",{year:"numeric",month:"short",day:"2-digit"})}catch{return d}}
+function catTag(code){const c=S.coa.find(x=>x.code===code);const cls=!c?"tag-muted":c.type==="revenue"?"tag-green":c.type==="expense"?"tag-red":c.type==="asset"?"tag-blue":c.type==="equity"?"tag-gold":"tag-muted";return`<span class="tag ${cls}">${code||"—"}</span>`}
+function toast(msg,dur=3000){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),dur)}
+function escHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function getTxMonth(t){return new Date(t.date+"T00:00:00").getMonth()}
+function emptyState(icon,title,sub){return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><p style="font-size:12px;margin-top:8px;color:var(--muted)">${sub}</p></div>`}
+function setMsg(t){document.getElementById("sync-msg").textContent=t}
+function setErr(t){document.getElementById("sync-err").textContent=t}
+
+function buildNav(){
+  const nav=document.getElementById("nav");let html="",last="";
+  TABS.forEach(t=>{if(t.s!==last){html+=`<div class="nav-section">${SEC_LABELS[t.s]||t.s}</div>`;last=t.s;}html+=`<button class="nav-btn ${S.tab===t.id?'active':''}" onclick="goTab('${t.id}')"><span class="icon">${t.icon}</span>${t.label}</button>`;});
+  nav.innerHTML=html;
+}
+function buildYearSelect(){const sel=document.getElementById("year-select");sel.innerHTML=S.years.map(y=>`<option value="${y}" ${y===S.year?"selected":""}>${y}</option>`).join("");}
+async function changeYear(y){S.year=+y;await loadYearTxns(S.year);updateSidebar();renderContent();}
+function goTab(id){S.tab=id;S.filterSearch="";S.filterCode="";S.filterSign="";const t=TABS.find(x=>x.id===id);document.getElementById("topbar-title").textContent=t?.label||id;buildNav();renderContent();if(window.innerWidth<=640)document.getElementById("sidebar").classList.remove("open");}
+function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
+function updateSidebar(){
+  buildYearSelect();buildNav();
+  const net=S.txns.reduce((s,t)=>s+t.amount,0);
+  const el=document.getElementById("sidebar-net");
+  el.textContent=fmt(net);el.style.color=net>=0?"#a855f7":"#ef4444";
+  document.getElementById("sidebar-meta").textContent=`${S.year} · ${S.txns.length} transacciones`;
+}
+
+function renderDashboard(){
+  const txs=S.txns;
+  if(!txs.length)return emptyState("💜",`No hay datos para ${S.year}`,"Usa el botón ⬆️ Importar para cargar tus transacciones.");
+  const rev=txs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const exp=txs.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const net=rev-exp;
+  const margin=rev>0?((net/rev)*100).toFixed(1):"0.0";
+
+  // IVU estimado sobre ventas
+  const ventas=txs.filter(t=>t.amount>0&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
+  const ivuEstatal=ventas*IVU_ESTATAL;
+  const ivuMunicipal=ventas*IVU_MUNICIPAL;
+
+  const monthly=Array.from({length:12},(_,m)=>({m,lbl:MONTHS[m],inc:txs.filter(t=>t.amount>0&&getTxMonth(t)===m).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.amount<0&&getTxMonth(t)===m).reduce((s,t)=>s+Math.abs(t.amount),0)}));
+  const now=new Date();const curM=S.year===now.getFullYear()?now.getMonth():11;
+  const active=monthly.filter(m=>m.m<=curM||m.inc>0||m.exp>0);
+  const maxVal=Math.max(...active.flatMap(m=>[m.inc,m.exp]),1);
+  const svgW=560,svgH=140,pL=52,pR=12,pT=10,pB=28,cW=svgW-pL-pR,cH=svgH-pT-pB;
+  const colW=cW/active.length,barW=Math.min(colW*.35,18),gap=barW*.5;
+  const yL=Array.from({length:5},(_,i)=>{const v=maxVal*(4-i)/4,y=pT+(cH*i/4);const l=v>=1000?`$${(v/1000).toFixed(1)}k`:`$${v.toFixed(0)}`;return`<line x1="${pL}" y1="${y.toFixed(1)}" x2="${svgW-pR}" y2="${y.toFixed(1)}" stroke="#2d1f4a" stroke-width="1" stroke-dasharray="3,3"/><text x="${(pL-4).toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#8b7aa8" font-size="9">${l}</text>`;}).join("");
+  const bars=active.map((mo,i)=>{const cx=pL+i*colW+colW/2;const iH=mo.inc>0?Math.max((mo.inc/maxVal)*cH,3):0;const eH=mo.exp>0?Math.max((mo.exp/maxVal)*cH,3):0;return`<g>${mo.inc>0?`<rect x="${(cx-gap-barW).toFixed(1)}" y="${(pT+cH-iH).toFixed(1)}" width="${barW.toFixed(1)}" height="${iH.toFixed(1)}" fill="#a855f7" fill-opacity=".85" rx="2"/>`:""}${mo.exp>0?`<rect x="${(cx+gap).toFixed(1)}" y="${(pT+cH-eH).toFixed(1)}" width="${barW.toFixed(1)}" height="${eH.toFixed(1)}" fill="#ef4444" fill-opacity=".85" rx="2"/>`:""}` +`<text x="${cx.toFixed(1)}" y="${(svgH-pB+14).toFixed(1)}" text-anchor="middle" fill="#8b7aa8" font-size="9">${mo.lbl}</text></g>`;}).join("");
+  const svg=`<svg class="chart-svg" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${pT+cH}" stroke="#3d2f5a" stroke-width="1"/><line x1="${pL}" y1="${(pT+cH).toFixed(1)}" x2="${svgW-pR}" y2="${(pT+cH).toFixed(1)}" stroke="#3d2f5a" stroke-width="1"/>${yL}${bars}</svg>`;
+
+  const expMap={},incMap={};
+  txs.filter(t=>t.amount<0).forEach(t=>{const k=t.coaCode||"7100";expMap[k]=(expMap[k]||0)+Math.abs(t.amount)});
+  txs.filter(t=>t.amount>0).forEach(t=>{const k=t.coaCode||"4090";incMap[k]=(incMap[k]||0)+t.amount});
+  const topExp=Object.entries(expMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const topInc=Object.entries(incMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const recent=[...txs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+
+  return`<div class="grid">
+    <div class="card kpi"><div class="kpi-label">Ventas</div><div class="kpi-val" style="color:#a855f7">${fmt(rev)}</div><div class="kpi-sub">${txs.filter(t=>t.amount>0).length} transacciones</div></div>
+    <div class="card kpi"><div class="kpi-label">Gastos</div><div class="kpi-val" style="color:#ef4444">${fmt(exp)}</div><div class="kpi-sub">${txs.filter(t=>t.amount<0).length} transacciones</div></div>
+    <div class="card kpi"><div class="kpi-label">Utilidad Neta</div><div class="kpi-val" style="color:${net>=0?'#a855f7':'#ef4444'}">${fmt(net)}</div><div class="kpi-sub">Margen ${margin}%</div></div>
+    <div class="card kpi"><div class="kpi-label">IVU Estimado</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuEstatal+ivuMunicipal)}</div><div class="kpi-sub">10.5% + 1% sobre ${fmt(ventas)}</div></div>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+    <div class="card" style="flex:2;min-width:260px">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span>Ingresos vs Gastos · ${S.year}</span><div style="display:flex;gap:10px;font-size:10px;color:var(--muted)"><span><span style="display:inline-block;width:8px;height:8px;background:#a855f7;border-radius:2px;margin-right:3px"></span>Ing</span><span><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:2px;margin-right:3px"></span>Gas</span></div></div>
+      <div class="chart-wrap">${svg}</div>
+    </div>
+    <div class="card" style="flex:1;min-width:180px;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05)">
+      <div class="section-title" style="color:#f59e0b">🧾 IVU Estimado ${S.year}</div>
+      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">Ventas sujetas a IVU</div><div style="font-family:var(--serif);font-size:16px;color:#a855f7">${fmt(ventas)}</div></div>
+      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">IVU Estatal (10.5%)</div><div style="font-family:var(--serif);font-size:16px;color:#f59e0b">${fmt(ivuEstatal)}</div></div>
+      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">IVU Municipal (1%)</div><div style="font-family:var(--serif);font-size:16px;color:#f59e0b">${fmt(ivuMunicipal)}</div></div>
+      <div style="border-top:1px solid rgba(245,158,11,.3);padding-top:8px"><div style="font-size:11px;color:var(--muted)">Total IVU</div><div style="font-family:var(--serif);font-size:20px;font-weight:600;color:#f59e0b">${fmt(ivuEstatal+ivuMunicipal)}</div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+    <div class="card" style="flex:1;min-width:200px"><div class="section-title">Top Gastos</div>${topExp.map(([code,val])=>{const c=S.coa.find(x=>x.code===code);const pct=exp>0?(val/exp*100).toFixed(0):0;return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:3px"><span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${c?.name||code}</span><span style="font-size:11px;color:#ef4444;white-space:nowrap">${fmt(val,true)}</span></div><div class="bar-wrap"><div class="bar-fill" style="background:#ef4444;width:${pct}%"></div></div></div>`}).join("")}</div>
+    <div class="card" style="flex:1;min-width:200px"><div class="section-title">Top Ingresos</div>${topInc.map(([code,val])=>{const c=S.coa.find(x=>x.code===code);const pct=rev>0?(val/rev*100).toFixed(0):0;return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:3px"><span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${c?.name||code}</span><span style="font-size:11px;color:#a855f7;white-space:nowrap">${fmt(val,true)}</span></div><div class="bar-wrap"><div class="bar-fill" style="background:#a855f7;width:${pct}%"></div></div></div>`}).join("")}</div>
+  </div>
+  <div class="card"><div class="section-title">Últimas Transacciones</div><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th></tr></thead><tbody>${recent.map(t=>`<tr><td style="color:var(--muted);white-space:nowrap">${fmtDate(t.date)}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.description)}</td><td>${catTag(t.coaCode)}</td><td style="text-align:right;color:${t.amount>=0?'#a855f7':'#ef4444'};font-weight:600">${fmt(t.amount)}</td></tr>`).join("")}</tbody></table><div style="margin-top:10px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="goTab('txns')">Ver todas →</button></div></div>`;
+}
+
+function renderPL(){
+  const revA=S.coa.filter(c=>c.type==="revenue"&&c.group!=="header");
+  const expA=S.coa.filter(c=>c.type==="expense"&&c.group!=="header");
+  const sum=code=>S.txns.filter(t=>t.coaCode===code).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const tR=revA.reduce((s,a)=>s+sum(a.code),0),tE=expA.reduce((s,a)=>s+sum(a.code),0),net=tR-tE;
+  return`<div style="max-width:680px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:600">Estado de Resultados</div><div style="display:flex;gap:8px"><button class="btn btn-purple btn-sm" onclick="aiSummarizePL()">🤖 Resumen IA</button><button class="btn btn-ghost btn-sm" onclick="exportPL()">⬇️ Exportar</button></div></div>
+  <div class="card" style="margin-bottom:16px"><div style="text-align:center;margin-bottom:18px"><div style="font-family:var(--serif);font-size:20px;font-weight:600">${escHtml(S.settings.companyName)}</div><div style="font-size:12px;color:var(--muted)">Estado de Resultados · Año Fiscal ${S.year} · Base de Efectivo</div></div>
+  <table><tbody><tr class="pl-section"><td colspan="2">INGRESOS</td></tr>${revA.map(a=>{const v=sum(a.code);return v>0?`<tr class="pl-row"><td>${a.code} · ${escHtml(a.name)}</td><td style="text-align:right;color:#a855f7">${fmt(v)}</td></tr>`:""}).join("")}<tr class="pl-total" style="color:#a855f7"><td>TOTAL INGRESOS</td><td style="text-align:right">${fmt(tR)}</td></tr>
+  <tr class="pl-section"><td colspan="2">GASTOS</td></tr>${expA.map(a=>{const v=sum(a.code);return v>0?`<tr class="pl-row"><td>${a.code} · ${escHtml(a.name)}</td><td style="text-align:right;color:#ef4444">(${fmt(v,true)})</td></tr>`:""}).join("")}<tr class="pl-total" style="color:#ef4444"><td>TOTAL GASTOS</td><td style="text-align:right">(${fmt(tE,true)})</td></tr>
+  <tr class="pl-net" style="color:${net>=0?'#a855f7':'#ef4444'}"><td>UTILIDAD NETA</td><td style="text-align:right">${fmt(net)}</td></tr>${tR>0?`<tr><td style="padding:4px 10px 10px;font-size:11px;color:var(--muted)">Margen</td><td style="text-align:right;padding:4px 10px 10px;font-size:11px;color:${net>=0?'#a855f7':'#ef4444'}">${((net/tR)*100).toFixed(1)}%</td></tr>`:""}</tbody></table></div>
+  <div id="pl-ai-result"></div>
+  <div class="card" style="background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.25)"><div style="font-size:11px;color:#f59e0b;font-weight:600;margin-bottom:4px">⚠️ Nota Fiscal · Puerto Rico LLC</div><div style="font-size:11px;color:var(--muted);line-height:1.7">IVU sobre ventas: 10.5% estatal + 1% municipal = 11.5% total.<br>Contribución sobre ingresos: según tabla de Hacienda PR.<br>Consulta tu CPA para declaración definitiva (Formulario SC 2800).</div></div></div>`;
+}
+
+async function aiSummarizePL(){
+  const revA=S.coa.filter(c=>c.type==="revenue"&&c.group!=="header");
+  const expA=S.coa.filter(c=>c.type==="expense"&&c.group!=="header");
+  const sum=code=>S.txns.filter(t=>t.coaCode===code).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const tR=revA.reduce((s,a)=>s+sum(a.code),0),tE=expA.reduce((s,a)=>s+sum(a.code),0),net=tR-tE;
+  const el=document.getElementById("pl-ai-result");if(!el)return;
+  el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(124,58,237,.3)"><div class="ai-typing"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div></div>`;
+  try{
+    const resp=await callClaude(`CFO de ${S.settings.companyName}, LLC en Puerto Rico. Distribución y servicio de equipos de estética. Analiza P&L ${S.year}. Ingresos:${fmt(tR)} Gastos:${fmt(tE)} Neto:${fmt(net)}. IVU 10.5% estatal + 1% municipal. Resumen ejecutivo en español, máx 200 palabras.`);
+    el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.05)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span>🤖</span><span style="color:var(--accent2);font-weight:600">Resumen Ejecutivo IA</span></div><div style="font-size:12px;line-height:1.8;white-space:pre-wrap">${escHtml(resp)}</div></div>`;
+  }catch(e){el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(239,68,68,.3)"><span style="color:var(--red);font-size:12px">❌ ${escHtml(e.message)}</span></div>`}
+}
+
+function exportPL(){
+  const revA=S.coa.filter(c=>c.type==="revenue"&&c.group!=="header");
+  const expA=S.coa.filter(c=>c.type==="expense"&&c.group!=="header");
+  const sum=code=>S.txns.filter(t=>t.coaCode===code).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const tR=revA.reduce((s,a)=>s+sum(a.code),0),tE=expA.reduce((s,a)=>s+sum(a.code),0);
+  let csv=`ESTADO DE RESULTADOS\n${S.settings.companyName}\nAño ${S.year}\n\nCódigo,Cuenta,Monto\n`;
+  revA.forEach(a=>{const v=sum(a.code);if(v>0)csv+=`${a.code},"${a.name}",${v.toFixed(2)}\n`});
+  csv+=`,,TOTAL INGRESOS,${tR.toFixed(2)}\n`;
+  expA.forEach(a=>{const v=sum(a.code);if(v>0)csv+=`${a.code},"${a.name}",-${v.toFixed(2)}\n`});
+  csv+=`,,TOTAL GASTOS,-${tE.toFixed(2)}\n,,UTILIDAD NETA,${(tR-tE).toFixed(2)}\n`;
+  downloadFile(`PL_Genova_${S.year}.csv`,csv,"text/csv");
+}
+
+function renderBalance(){
+  const entries=S.balanceEntries.filter(e=>e.year===S.year);
+  const assetE=entries.filter(e=>e.type==="asset"),liabE=entries.filter(e=>e.type==="liability");
+  const tA=assetE.reduce((s,e)=>s+e.amount,0),tL=liabE.reduce((s,e)=>s+e.amount,0);
+  const eq=tA-tL,netInc=S.txns.reduce((s,t)=>s+t.amount,0);
+  return`<div style="max-width:680px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:600">Balance General</div><button class="btn btn-primary btn-sm" onclick="showModal('add-balance')">+ Agregar</button></div>
+  <div class="grid"><div class="card kpi"><div class="kpi-label">Total Activos</div><div class="kpi-val" style="color:#3b82f6">${fmt(tA)}</div></div><div class="card kpi"><div class="kpi-label">Total Pasivos</div><div class="kpi-val" style="color:#8b5cf6">${fmt(tL)}</div></div><div class="card kpi"><div class="kpi-label">Patrimonio</div><div class="kpi-val" style="color:${eq>=0?'#a855f7':'#ef4444'}">${fmt(eq+netInc)}</div></div></div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap">
+  <div class="card" style="flex:1;min-width:240px"><div class="section-title" style="color:#3b82f6">ACTIVOS</div><table><thead><tr><th>Descripción</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${assetE.map(e=>`<tr><td>${escHtml(e.name)}</td><td style="text-align:right;color:#3b82f6">${fmt(e.amount)}</td><td><button onclick="removeBalanceEntry('${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button></td></tr>`).join("")}${!assetE.length?`<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:20px">Sin activos</td></tr>`:""}</tbody></table></div>
+  <div class="card" style="flex:1;min-width:240px"><div class="section-title" style="color:#8b5cf6">PASIVOS</div><table><thead><tr><th>Descripción</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${liabE.map(e=>`<tr><td>${escHtml(e.name)}</td><td style="text-align:right;color:#8b5cf6">${fmt(e.amount)}</td><td><button onclick="removeBalanceEntry('${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button></td></tr>`).join("")}${!liabE.length?`<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:20px">Sin pasivos</td></tr>`:""}</tbody></table></div>
+  </div></div>`;
+}
+async function removeBalanceEntry(id){S.balanceEntries=S.balanceEntries.filter(e=>e.id!==id);await saveBalanceEntries();renderContent();}
+
+function renderTaxes(){
+  const txs=S.txns;
+  const ventas=txs.filter(t=>t.amount>0&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
+  const otrosIng=txs.filter(t=>t.amount>0&&t.coaCode==="4090").reduce((s,t)=>s+t.amount,0);
+  const totalIng=ventas+otrosIng;
+  const ivuEstatal=ventas*IVU_ESTATAL;
+  const ivuMunicipal=ventas*IVU_MUNICIPAL;
+  const ivuTotal=ivuEstatal+ivuMunicipal;
+  const gastos=txs.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const utilidad=totalIng-gastos;
+
+  const qRows=QUARTERS.map(q=>{
+    const qVentas=txs.filter(t=>t.amount>0&&q.months.includes(getTxMonth(t))&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
+    const qIvuE=qVentas*IVU_ESTATAL,qIvuM=qVentas*IVU_MUNICIPAL;
+    const due=q.label==="Q1"?"Abr 20":q.label==="Q2"?"Jul 20":q.label==="Q3"?"Oct 20":"Ene 20";
+    return`<tr><td style="font-weight:600;color:var(--accent2)">${q.label}</td><td style="text-align:right;color:#a855f7">${qVentas>0?fmt(qVentas):"—"}</td><td style="text-align:right;color:#f59e0b">${qIvuE>0?fmt(qIvuE):"—"}</td><td style="text-align:right;color:#f59e0b">${qIvuM>0?fmt(qIvuM):"—"}</td><td style="text-align:right;color:var(--red);font-weight:600">${(qIvuE+qIvuM)>0?fmt(qIvuE+qIvuM):"$0"}</td><td><span class="tag tag-gold">${due}</span></td></tr>`;
+  }).join("");
+
+  return`<div style="max-width:800px"><div style="font-size:15px;font-weight:600;margin-bottom:6px">IVU & Impuestos · ${S.year}</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px">Puerto Rico · IVU 10.5% Estatal + 1% Municipal</div>
+  <div class="grid"><div class="card kpi"><div class="kpi-label">Ventas Sujetas IVU</div><div class="kpi-val" style="color:#a855f7">${fmt(ventas)}</div></div><div class="card kpi"><div class="kpi-label">IVU Estatal (10.5%)</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuEstatal)}</div></div><div class="card kpi"><div class="kpi-label">IVU Municipal (1%)</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuMunicipal)}</div></div><div class="card kpi"><div class="kpi-label">Total IVU Est.</div><div class="kpi-val" style="color:var(--red)">${fmt(ivuTotal)}</div></div></div>
+  <div class="card card-sm" style="margin-bottom:16px"><div class="section-title">Declaraciones Trimestrales IVU (Hacienda PR)</div><div style="overflow-x:auto"><table style="font-size:11px;min-width:500px"><thead><tr><th>Trimestre</th><th style="text-align:right;color:#a855f7">Ventas</th><th style="text-align:right;color:#f59e0b">IVU Estatal</th><th style="text-align:right;color:#f59e0b">IVU Municipal</th><th style="text-align:right;color:var(--red)">Total</th><th>Vence</th></tr></thead><tbody>${qRows}</tbody></table></div></div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap">
+  <div class="card" style="flex:1;min-width:220px;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05)"><div style="font-size:12px;font-weight:600;color:#f59e0b;margin-bottom:10px">📅 Calendario Fiscal PR</div>
+    ${[{d:"Ene 20",e:"Planilla IVU Q4"},{d:"Feb 28",e:"Informe anual W-2/499R-2"},{d:"Abr 15",e:"Planilla Contribución sobre Ingresos"},{d:"Abr 20",e:"Planilla IVU Q1"},{d:"Jul 20",e:"Planilla IVU Q2"},{d:"Oct 20",e:"Planilla IVU Q3"}].map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(45,31,74,.5)"><span style="color:#f59e0b;font-size:11px;min-width:70px">${x.d}</span><span style="font-size:11px">${x.e}</span></div>`).join("")}
+  </div>
+  <div class="card" style="flex:1;min-width:220px;border-color:rgba(124,58,237,.3)"><div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">💡 Tips Fiscales PR</div><div style="font-size:11px;color:var(--muted);line-height:1.9">✅ Registra en SURI (suri.hacienda.pr.gov)<br>✅ Guarda todos los recibos de compra<br>✅ Separa IVU cobrado del ingreso<br>✅ Crédito IVU por compras de negocio<br>✅ Inventario deducible (Sección 1033)<br>✅ Depreciación de equipos (Sección 1040)<br>⚠️ Consulta tu CPA en PR</div></div>
+  </div></div>`;
+}
+
+function renderTxns(){
+  const lc=S.coa.filter(c=>c.group!=="header");
+  const filtered=S.txns.filter(t=>{const q=S.filterSearch.toLowerCase();if(q&&!`${t.description} ${t.counterparty}`.toLowerCase().includes(q))return false;if(S.filterCode&&t.coaCode!==S.filterCode)return false;if(S.filterSign==="income"&&t.amount<=0)return false;if(S.filterSign==="expense"&&t.amount>=0)return false;return true;}).sort((a,b)=>b.date.localeCompare(a.date));
+  return`<div class="card card-sm" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input style="width:200px" placeholder="🔍 Buscar..." value="${escHtml(S.filterSearch)}" oninput="S.filterSearch=this.value;renderContent()"><select style="max-width:220px" onchange="S.filterCode=this.value;renderContent()"><option value="">Todas las categorías</option>${lc.map(c=>`<option value="${c.code}" ${c.code===S.filterCode?"selected":""}>${c.code} – ${escHtml(c.name)}</option>`).join("")}</select><select onchange="S.filterSign=this.value;renderContent()"><option value="" ${!S.filterSign?"selected":""}>Todos</option><option value="income">Ingresos</option><option value="expense">Gastos</option></select><div style="flex:1"></div><button class="btn btn-ghost btn-sm" onclick="autoAll()">⚡ Auto-categorizar</button><button class="btn btn-primary btn-sm" onclick="showModal('add-tx')">+ Manual</button></div></div>
+  <div class="card card-sm"><div style="font-size:11px;color:var(--muted);margin-bottom:10px">${filtered.length} transacciones</div><div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>${filtered.map(t=>{const opts=lc.map(c=>`<option value="${c.code}" ${c.code===t.coaCode?"selected":""}>${c.code} – ${escHtml(c.name)}</option>`).join("");return`<tr><td style="color:var(--muted);white-space:nowrap;font-size:11px">${fmtDateFull(t.date)}</td><td style="max-width:240px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.description)}</div>${t.isManual?'<span class="tag tag-gold">Manual</span>':""}</td><td><select style="font-size:11px;max-width:200px" onchange="updateTxCoa('${t.id}',this.value)"><option value="">Sin categoría</option>${opts}</select></td><td style="text-align:right;color:${t.amount>=0?'#a855f7':'#ef4444'};font-weight:600;white-space:nowrap">${fmt(t.amount)}</td><td>${t.isManual?`<button onclick="deleteTx('${t.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button>`:""}</td></tr>`;}).join("")}${filtered.length===0?`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Sin resultados</td></tr>`:""}</tbody></table></div></div>`;
+}
+async function updateTxCoa(id,code){S.txns=S.txns.map(t=>t.id===id?{...t,coaCode:code}:t);await saveTxns();updateSidebar();}
+async function autoAll(){S.txns=S.txns.map(t=>({...t,coaCode:autoCategory(t)}));await saveTxns();renderContent();toast("✅ Auto-categorización completa")}
+async function deleteTx(id){S.txns=S.txns.filter(t=>t.id!==id);await saveTxns();renderContent();updateSidebar();}
+
+function renderCoa(){
+  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div style="font-size:15px;font-weight:600">Plan de Cuentas</div><button class="btn btn-primary btn-sm" onclick="showModal('add-coa')">+ Nueva</button></div><div class="card card-sm"><table><thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th></th></tr></thead><tbody>${S.coa.map(c=>`<tr style="${c.group==="header"?"background:var(--row)":""}"><td style="font-weight:${c.group==="header"?600:400}">${c.code}</td><td style="padding-left:${c.group==="header"?10:22}px">${escHtml(c.name)}</td><td>${c.group!=="header"?`<span class="tag" style="background:${TYPE_COLOR[c.type]||'#6b7280'}20;color:${TYPE_COLOR[c.type]||'#6b7280'};border:1px solid ${TYPE_COLOR[c.type]||'#6b7280'}40;font-size:10px">${c.type}</span>`:""}</td><td>${c.group!=="header"?`<button onclick="removeCoa('${c.code}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button>`:""}</td></tr>`).join("")}</tbody></table></div>`;
+}
+async function removeCoa(code){S.coa=S.coa.filter(c=>c.code!==code);await saveCoa();renderContent();}
+
+function renderAI(){
+  const sugs=["¿Cuáles son mis ventas más altas?","¿Cuánto IVU debo este trimestre?","¿Cuál es mi margen de utilidad?","¿Qué gastos puedo reducir?","Dame un resumen del año"];
+  return`<div style="max-width:700px;display:flex;flex-direction:column;height:calc(100vh - 140px)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div><div style="font-size:15px;font-weight:600">Asistente Financiero IA</div><div style="font-size:11px;color:var(--muted)">Tu CFO digital · ${S.year}</div></div><button class="btn btn-ghost btn-sm" onclick="clearAiChat()">🗑 Limpiar</button></div>
+  <div id="ai-chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:10px;max-height:calc(100vh - 280px)">${S.aiMessages.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">💜</div><div style="font-size:14px;color:var(--text);margin-bottom:16px">Tu CFO digital está listo</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${sugs.map(q=>`<button class="btn btn-ghost btn-sm" onclick="sendAiQuestion('${q.replace(/'/g,"\\'")}')"><span style="font-size:10px">${q}</span></button>`).join("")}</div></div>`:S.aiMessages.map(m=>`<div class="ai-bubble ${m.role}">${m.role==="ai"?'<span style="font-size:16px;margin-right:6px">🤖</span>':""}<span style="white-space:pre-wrap">${escHtml(m.content)}</span></div>`).join("")}</div>
+  <div style="display:flex;gap:8px;margin-top:10px;padding-top:12px;border-top:1px solid var(--border)"><input id="ai-input" placeholder="Pregunta sobre tus finanzas…" style="flex:1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}"><button class="btn btn-primary" onclick="sendAiMessage()" id="ai-send-btn">Enviar</button></div></div>`;
+}
+async function sendAiMessage(){const inp=document.getElementById("ai-input");if(!inp)return;const msg=inp.value.trim();if(!msg)return;inp.value="";await sendAiQuestion(msg);}
+async function sendAiQuestion(msg){
+  S.aiMessages.push({role:"user",content:msg});renderContent();
+  setTimeout(()=>{const el=document.getElementById("ai-chat-messages");if(el)el.scrollTop=el.scrollHeight},50);
+  const btn=document.getElementById("ai-send-btn");if(btn)btn.disabled=true;
+  const rev=S.txns.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const exp=S.txns.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0),net=rev-exp;
+  const ventas=S.txns.filter(t=>t.amount>0&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
+  const sys=`Eres el CFO de ${S.settings.companyName}, LLC en Puerto Rico. Empresa de distribución y servicio técnico de equipos de estética.\nAño: ${S.year} | Ventas: ${fmt(rev)} | Gastos: ${fmt(exp)} | Utilidad: ${fmt(net)}\nIVU estimado: ${fmt(ventas*0.115)} (10.5% estatal + 1% municipal sobre ${fmt(ventas)})\nRégimen fiscal: Puerto Rico LLC, IVU, Hacienda PR.\nResponde en español, directo y práctico. Máx 200 palabras.`;
+  try{
+    const history=S.aiMessages.slice(-8).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}));
+    const resp=await callClaudeWithSystem(sys,history);
+    S.aiMessages.push({role:"ai",content:resp});await saveAiMessages();renderContent();
+    setTimeout(()=>{const el=document.getElementById("ai-chat-messages");if(el)el.scrollTop=el.scrollHeight},50);
+  }catch(e){S.aiMessages.push({role:"ai",content:`❌ ${e.message}`});renderContent();}
+  if(btn)btn.disabled=false;
+}
+async function clearAiChat(){S.aiMessages=[];await saveAiMessages();renderContent();}
+async function runMonthlyAnalysis(){goTab("ai");await sendAiQuestion(`Dame un análisis completo de ${S.year}: ventas por categoría, IVU acumulado, gastos principales y 3 recomendaciones para mejorar la rentabilidad de Genova Beauty.`);}
+
+function renderSettings(){
+  return`<div style="max-width:640px;display:flex;flex-direction:column;gap:18px">
+  <div class="card"><div class="section-title">🏢 Empresa</div><div class="input-row"><div style="flex:1"><label>Nombre</label><input id="s-company" value="${escHtml(S.settings.companyName)}" style="width:100%"></div></div><button class="btn btn-primary btn-sm" onclick="saveSettingsForm()">Guardar</button></div>
+  <div class="card"><div class="section-title">📅 Años Fiscales</div><div style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><input id="new-year" type="number" placeholder="2026" style="width:120px" min="2020" max="2099"><button class="btn btn-primary btn-sm" onclick="addYear()">+ Agregar</button></div><div style="display:flex;gap:8px;flex-wrap:wrap">${S.years.map(y=>`<div style="display:flex;align-items:center;gap:6px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:8px;padding:6px 12px"><span style="font-family:var(--serif);font-size:15px;color:var(--accent2);font-weight:600">${y}</span><button onclick="removeYear(${y})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">🗑</button></div>`).join("")}</div></div>
+  <div class="card" style="border-color:rgba(124,58,237,.3)"><div class="section-title">💾 Exportar / Importar</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="exportAllData()">⬇️ Exportar JSON</button><button class="btn btn-ghost btn-sm" onclick="exportTxns()">⬇️ CSV ${S.year}</button><button class="btn btn-ghost btn-sm" onclick="showModal('import-json')">⬆️ Importar JSON</button></div></div>
+  <div class="card" style="border-color:rgba(239,68,68,.3)"><div class="section-title" style="color:#ef4444">⚠️ Zona de Peligro</div><button class="btn btn-danger btn-sm" onclick="clearYearData()">🗑 Borrar datos de ${S.year}</button></div>
+  </div>`;
+}
+async function saveSettingsForm(){S.settings.companyName=document.getElementById("s-company").value;await saveSettings();updateSidebar();toast("✅ Guardado")}
+async function addYear(){const y=+document.getElementById("new-year").value;if(!y||y<2020||y>2099)return toast("⚠️ Año inválido");if(S.years.includes(y))return toast("⚠️ Ya existe");S.years=[...S.years,y].sort();await saveYears();buildYearSelect();renderContent();toast(`✅ Año ${y} agregado`)}
+async function removeYear(y){if(!confirm(`¿Borrar año ${y}?`))return;S.years=S.years.filter(x=>x!==y);await saveYears();await dbSet(`txns:${y}`,[]);if(S.year===y){S.year=S.years[S.years.length-1]||2025;await loadYearTxns(S.year)}buildYearSelect();updateSidebar();renderContent();toast(`✅ Año ${y} eliminado`)}
+async function clearYearData(){if(!confirm(`¿Borrar transacciones de ${S.year}?`))return;S.txns=[];await saveTxns();updateSidebar();renderContent();toast("✅ Datos borrados")}
+async function exportAllData(){
+  const transactions={};
+  for(const yr of S.years){const t=await dbGet(`txns:${yr}`);transactions[yr]=t||[];}
+  transactions[S.year]=S.txns;
+  downloadFile(`GenovaFlow_backup_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({version:2,exportDate:new Date().toISOString(),settings:S.settings,coa:S.coa,bankAccounts:S.bankAccounts,years:S.years,balanceEntries:S.balanceEntries,transactions},null,2),"application/json");
+  toast("✅ Backup exportado");
+}
+function exportTxns(){let csv="Fecha,Descripción,Categoría,Monto\n";[...S.txns].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{const name=S.coa.find(c=>c.code===t.coaCode)?.name||"";csv+=`${t.date},"${(t.description||"").replace(/"/g,'""')}","${name}",${t.amount}\n`;});downloadFile(`Transacciones_Genova_${S.year}.csv`,csv,"text/csv")}
+function downloadFile(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
+
+async function callClaude(prompt){
+  const r=await fetch(PROXY_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:ANTHROPIC_MODEL,max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+  if(!r.ok)throw new Error(`API ${r.status}`);const d=await r.json();return d.content.map(b=>b.text||"").join("");
+}
+async function callClaudeWithSystem(system,messages){
+  const r=await fetch(PROXY_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:ANTHROPIC_MODEL,max_tokens:1000,system,messages})});
+  if(!r.ok)throw new Error(`API ${r.status}`);const d=await r.json();return d.content.map(b=>b.text||"").join("");
+}
+
+function showModal(type){
+  const lc=S.coa.filter(c=>c.group!=="header");let html="";
+  if(type==="add-tx")html=`<div class="modal"><div class="modal-title">Nueva Entrada Manual</div><div class="input-row"><div><label>Fecha *</label><input type="date" id="m-date" value="${new Date().toISOString().slice(0,10)}"></div><div style="flex:1"><label>Descripción *</label><input id="m-desc" style="width:100%"></div></div><div class="input-row"><div><label>Monto (+ ingreso / - gasto)</label><input type="number" id="m-amount" step="0.01" placeholder="-150.00"></div><div style="flex:1"><label>Contraparte</label><input id="m-counter" style="width:100%"></div></div><div class="input-row"><div style="flex:1"><label>Categoría</label><select id="m-coa" style="width:100%"><option value="">Auto-detectar</option>${lc.map(c=>`<option value="${c.code}">${c.code} – ${escHtml(c.name)}</option>`).join("")}</select></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addManualTx()">Agregar</button></div></div>`;
+  if(type==="add-balance")html=`<div class="modal"><div class="modal-title">Nueva Entrada Balance</div><div class="input-row"><div style="flex:2"><label>Descripción *</label><input id="b-name" style="width:100%"></div><div><label>Tipo</label><select id="b-type"><option value="asset">Activo</option><option value="liability">Pasivo</option></select></div></div><div class="input-row"><div><label>Valor ($)</label><input type="number" id="b-amount" step="100"></div><div style="flex:1"><label>Nota</label><input id="b-note" style="width:100%"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addBalanceEntry()">Agregar</button></div></div>`;
+  if(type==="add-coa")html=`<div class="modal"><div class="modal-title">Nueva Cuenta Contable</div><div class="input-row"><div><label>Código *</label><input id="c-code" style="width:90px"></div><div style="flex:1"><label>Nombre *</label><input id="c-name" style="width:100%"></div></div><div class="input-row"><div><label>Tipo</label><select id="c-type"><option value="expense">expense</option><option value="revenue">revenue</option><option value="asset">asset</option><option value="liability">liability</option><option value="equity">equity</option></select></div><div><label>Grupo</label><input id="c-group" style="width:120px" value="misc"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addCoaEntry()">Agregar</button></div></div>`;
+  if(type==="import-json")html=`<div class="modal"><div class="modal-title">⬆️ Importar Transacciones</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Pega aquí el JSON de transacciones generado desde Claude, o un backup completo de GenovaFlow.</p><textarea id="import-text" rows="10" style="width:100%;resize:vertical;font-family:monospace;font-size:11px" placeholder='[{"id":"...","date":"2025-01-01","description":"Venta equipo","amount":1500}]'></textarea><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="importJSON()">Importar</button></div></div>`;
+  const bg=document.createElement("div");bg.className="modal-bg";bg.id="active-modal";bg.innerHTML=html;bg.addEventListener("click",e=>{if(e.target===bg)closeModal()});document.getElementById("modal-container").appendChild(bg);
+}
+function closeModal(){const m=document.getElementById("active-modal");if(m)m.remove()}
+async function addManualTx(){const date=document.getElementById("m-date").value,desc=document.getElementById("m-desc").value.trim(),amount=parseFloat(document.getElementById("m-amount").value);if(!date||!desc||isNaN(amount))return toast("⚠️ Completa los campos requeridos");const tx={id:`manual_${Date.now()}`,date,description:desc,amount,counterparty:document.getElementById("m-counter").value,coaCode:document.getElementById("m-coa").value||autoCategory({description:desc,counterparty:"",amount}),isManual:true};S.txns=[...S.txns,tx];await saveTxns();closeModal();renderContent();updateSidebar();toast("✅ Entrada manual agregada")}
+async function addBalanceEntry(){const name=document.getElementById("b-name").value.trim(),amount=parseFloat(document.getElementById("b-amount").value);if(!name||isNaN(amount))return toast("⚠️ Completa los campos");S.balanceEntries=[...S.balanceEntries,{id:`bal_${Date.now()}`,year:S.year,name,type:document.getElementById("b-type").value,amount,note:document.getElementById("b-note")?.value||""}];await saveBalanceEntries();closeModal();renderContent();toast("✅ Entrada agregada")}
+async function addCoaEntry(){const code=document.getElementById("c-code").value.trim(),name=document.getElementById("c-name").value.trim();if(!code||!name)return toast("⚠️ Código y nombre requeridos");if(S.coa.find(c=>c.code===code))return toast("⚠️ Código ya existe");S.coa=[...S.coa,{code,name,type:document.getElementById("c-type").value,group:document.getElementById("c-group").value}].sort((a,b)=>a.code.localeCompare(b.code));await saveCoa();closeModal();renderContent();toast("✅ Cuenta agregada")}
+async function importJSON(){
+  const text=document.getElementById("import-text").value.trim();
+  try{
+    const data=JSON.parse(text);
+    if(data.version&&data.transactions){
+      if(data.settings){S.settings={...S.settings,...data.settings};await saveSettings()}
+      if(data.coa){S.coa=data.coa;await saveCoa()}
+      if(data.bankAccounts){S.bankAccounts=data.bankAccounts;await saveBankAccts()}
+      if(data.years){S.years=data.years;await saveYears()}
+      if(data.balanceEntries){S.balanceEntries=data.balanceEntries;await saveBalanceEntries()}
+      for(const [y,txs] of Object.entries(data.transactions||{}))await dbSet(`txns:${y}`,txs.map(t=>({...t,coaCode:t.coaCode||autoCategory(t)})));
+      await loadYearTxns(S.year);closeModal();updateSidebar();renderContent();toast("✅ Backup importado");
+    }else if(Array.isArray(data)){
+      const mapped=data.map(t=>({id:t.id||`imp_${Date.now()}_${Math.random()}`,date:(t.date||"").slice(0,10),description:t.description||"",amount:t.amount||0,counterparty:t.counterparty||"",note:t.note||"",coaCode:t.coaCode||autoCategory(t),isManual:false}));
+      const dupKey=t=>`${t.date}|${t.description}|${t.amount}`;
+      const newIds=new Set(mapped.map(t=>t.id));
+      const newKeys=new Set(mapped.map(t=>dupKey(t)));
+      const existing=S.txns.filter(t=>!newIds.has(t.id)&&!newKeys.has(dupKey(t)));
+      S.txns=[...existing,...mapped];await saveTxns();
+      if(!S.years.includes(S.year)){S.years=[...S.years,S.year].sort();await saveYears()}
+      closeModal();updateSidebar();renderContent();toast(`✅ ${mapped.length} transacciones importadas`);
+    }else toast("❌ Formato no reconocido");
+  }catch(e){toast("❌ Error JSON: "+e.message)}
+}
+
+function renderContent(){
+  const el=document.getElementById("content");
+  const map={dashboard:renderDashboard,pl:renderPL,balance:renderBalance,taxes:renderTaxes,txns:renderTxns,coa:renderCoa,ai:renderAI,settings:renderSettings};
+  el.innerHTML=(map[S.tab]||renderDashboard)();
+}
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs=>{regs.forEach(reg=>reg.unregister());});
+}
+
+(async()=>{
+  await openDB();await loadState();buildNav();buildYearSelect();updateSidebar();renderContent();
+})();
+</script>
+</body>
+</html>
