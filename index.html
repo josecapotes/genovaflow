@@ -168,7 +168,8 @@ const DEFAULT_COA = [
   {code:"2100",name:"Tarjeta de Crédito",type:"liability",group:"credit"},
   {code:"2200",name:"IVU por Pagar (10.5%)",type:"liability",group:"tax"},
   {code:"2210",name:"IVU Municipal por Pagar (1%)",type:"liability",group:"tax"},
-  {code:"2300",name:"Préstamos por Pagar",type:"liability",group:"loan"},
+  {code:"2300",name:"Préstamos por Pagar – Externos",type:"liability",group:"loan"},
+  {code:"2400",name:"Préstamo Socio / Empresario",type:"liability",group:"loan"},
   {code:"3000",name:"PATRIMONIO",type:"equity",group:"header"},
   {code:"3100",name:"Aportación de Capital",type:"equity",group:"capital"},
   {code:"3900",name:"Utilidades Retenidas",type:"equity",group:"retained"},
@@ -200,23 +201,43 @@ const DEFAULT_COA = [
 ];
 
 const AUTO_RULES = [
-  {re:/banco popular|bppr/i, code:"1010"},
+  // Préstamos externos
+  {re:/advance\s*servic/i, code:"2300"},
+  // Tarjeta de crédito empresa
+  {re:/visa.*5064|5064.*visa/i, code:"2100"},
+  // Renta local
+  {re:/7251|renta|alquiler/i, code:"6200"},
+  // Costo inventario / equipos
+  {re:/aliexpress|alipay/i, code:"5010"},
+  // Repuestos y materiales locales
+  {re:/lanco|any time 65|international tos/i, code:"5020"},
+  // Marketing
+  {re:/facebook|instagram|meta|metaplatfor/i, code:"6500"},
+  // Software y web
+  {re:/canva|zoho|google|web page|91wms|tacktile/i, code:"6700"},
+  // Transporte
+  {re:/autoexpreso|uber|lyft|peaje|gasolina/i, code:"6600"},
+  // Gastos bancarios
+  {re:/cargo.*servicio|servicios comerciales|mbc online|mantenimiento flexi/i, code:"7000"},
+  // IVU
+  {re:/cargo ivu estatal/i, code:"8100"},
+  {re:/cargo ivu municipal/i, code:"8200"},
+  // Seguro
   {re:/seguro|insurance/i, code:"6400"},
-  {re:/facebook|instagram|google ads|publicidad/i, code:"6500"},
-  {re:/delivery|fedex|ups|correo|envio|transporte/i, code:"6600"},
-  {re:/zoho|dropbox|software|suscripcion/i, code:"6700"},
-  {re:/cpa|abogado|legal|contable/i, code:"6800"},
-  {re:/mantenimiento|reparacion/i, code:"6900"},
-  {re:/luz|apa|water|internet|claro|liberty/i, code:"6300"},
-  {re:/alquiler|renta|rent/i, code:"6200"},
-  {re:/nomina|sueldo|salario|payroll/i, code:"6100"},
-  {re:/ivu|sales tax/i, code:"8100"},
+  // Gastos varios
+  {re:/la peninsula/i, code:"7100"},
 ];
 const AUTO_INCOME = [
-  {re:/venta.*equipo|equipo.*venta/i, code:"4010"},
+  // Ventas reales — solo Stripe
+  {re:/stripe/i, code:"4010"},
+  // Préstamo socio — TelePago xxxxx3435
+  {re:/telepago.*3435|3435.*telepago/i, code:"2400"},
+  // Devoluciones — no son ingresos reales
+  {re:/devuelto|devoluc/i, code:"4090"},
+  // Servicio técnico
   {re:/servicio.*tecnico|reparacion|repair/i, code:"4020"},
+  // Distribución mayoreo
   {re:/mayoreo|distribucion/i, code:"4030"},
-  {re:/repuesto|accesorio|parts/i, code:"4040"},
 ];
 
 function autoCategory(tx){
