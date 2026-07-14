@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#7c3aed">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GenovaFlow">
-<title>GenovaFlow v1.0</title>
+<title>GenovaFlow v2.0</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -124,7 +123,7 @@ label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
       <div class="logo-icon">💜</div>
       <div class="logo-name">GenovaFlow</div>
       <div class="logo-sub" id="sidebar-company">Genova Beauty & Equipment</div>
-      <div class="logo-ver">v1.0 · AI Edition</div>
+      <div class="logo-ver">v2.0 · AI Edition</div>
     </div>
     <div class="year-block">
       <div class="year-label">Año Fiscal</div>
@@ -145,7 +144,7 @@ label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
       </div>
       <span id="sync-msg"></span><span id="sync-err"></span>
       <button class="btn btn-purple btn-sm" onclick="runMonthlyAnalysis()">🤖 Analizar</button>
-      <button class="btn btn-primary" id="sync-btn" onclick="showModal('import-json')">⬆️ Importar</button>
+      <button class="btn btn-primary" onclick="showModal('import-json')">⬆️ Importar</button>
     </div>
     <div id="content"></div>
   </div>
@@ -154,21 +153,23 @@ label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
 <div id="modal-container"></div>
 
 <script>
-const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
-const PROXY_URL = "https://contaflow-ai.josecapotes.workers.dev";
+const PROXY_URL="https://contaflow-ai.josecapotes.workers.dev";
+const ANTHROPIC_MODEL="claude-sonnet-4-20250514";
+const IVU_ESTATAL=0.105,IVU_MUNICIPAL=0.01;
 
-const DEFAULT_COA = [
+const DEFAULT_COA=[
   {code:"1000",name:"ACTIVOS",type:"asset",group:"header"},
-  {code:"1010",name:"Banco Popular Checking",type:"asset",group:"bank"},
+  {code:"1010",name:"Banco Popular Checking ••4054",type:"asset",group:"bank"},
   {code:"1020",name:"Banco Popular Savings",type:"asset",group:"bank"},
   {code:"1100",name:"Cuentas por Cobrar",type:"asset",group:"receivable"},
   {code:"1200",name:"Inventario – Equipos Estética",type:"asset",group:"inventory"},
   {code:"1300",name:"Equipos y Herramientas",type:"asset",group:"equipment"},
   {code:"2000",name:"PASIVOS",type:"liability",group:"header"},
-  {code:"2100",name:"Tarjeta de Crédito",type:"liability",group:"credit"},
-  {code:"2200",name:"IVU por Pagar (10.5%)",type:"liability",group:"tax"},
-  {code:"2210",name:"IVU Municipal por Pagar (1%)",type:"liability",group:"tax"},
-  {code:"2300",name:"Préstamos por Pagar",type:"liability",group:"loan"},
+  {code:"2100",name:"Tarjeta de Crédito BP",type:"liability",group:"credit"},
+  {code:"2200",name:"IVU por Pagar",type:"liability",group:"tax"},
+  {code:"2300",name:"Préstamo Externo – Advance Servicing",type:"liability",group:"loan"},
+  {code:"2400",name:"Préstamo Socio / Empresario",type:"liability",group:"loan"},
+  {code:"2500",name:"Otros Préstamos por Pagar",type:"liability",group:"loan"},
   {code:"3000",name:"PATRIMONIO",type:"equity",group:"header"},
   {code:"3100",name:"Aportación de Capital",type:"equity",group:"capital"},
   {code:"3900",name:"Utilidades Retenidas",type:"equity",group:"retained"},
@@ -177,19 +178,19 @@ const DEFAULT_COA = [
   {code:"4020",name:"Servicio Técnico – Reparaciones",type:"revenue",group:"service"},
   {code:"4030",name:"Distribución – Mayoreo",type:"revenue",group:"distribution"},
   {code:"4040",name:"Accesorios y Repuestos",type:"revenue",group:"parts"},
-  {code:"4090",name:"Otros Ingresos",type:"revenue",group:"other"},
+  {code:"4090",name:"Otros Ingresos / Devoluciones",type:"revenue",group:"other"},
   {code:"5000",name:"COSTO DE VENTAS",type:"expense",group:"header"},
   {code:"5010",name:"Costo de Equipos Vendidos",type:"expense",group:"cogs"},
   {code:"5020",name:"Costo de Repuestos",type:"expense",group:"cogs"},
   {code:"6000",name:"GASTOS OPERATIVOS",type:"expense",group:"header"},
   {code:"6100",name:"Sueldos y Salarios",type:"expense",group:"payroll"},
-  {code:"6200",name:"Alquiler / Renta",type:"expense",group:"rent"},
-  {code:"6300",name:"Servicios Públicos (Luz, Agua, Internet)",type:"expense",group:"utilities"},
+  {code:"6200",name:"Alquiler / Renta Local",type:"expense",group:"rent"},
+  {code:"6300",name:"Servicios Públicos",type:"expense",group:"utilities"},
   {code:"6400",name:"Seguro",type:"expense",group:"insurance"},
   {code:"6500",name:"Marketing & Publicidad",type:"expense",group:"marketing"},
   {code:"6600",name:"Transporte y Entregas",type:"expense",group:"transport"},
   {code:"6700",name:"Software & Suscripciones",type:"expense",group:"software"},
-  {code:"6800",name:"Servicios Profesionales (CPA, Legal)",type:"expense",group:"professional"},
+  {code:"6800",name:"Servicios Profesionales",type:"expense",group:"professional"},
   {code:"6900",name:"Mantenimiento y Reparaciones",type:"expense",group:"maintenance"},
   {code:"7000",name:"Gastos Bancarios",type:"expense",group:"banking"},
   {code:"7100",name:"Gastos Varios",type:"expense",group:"misc"},
@@ -199,24 +200,30 @@ const DEFAULT_COA = [
   {code:"8300",name:"Contribución sobre Ingresos PR",type:"expense",group:"tax"},
 ];
 
-const AUTO_RULES = [
-  {re:/banco popular|bppr/i, code:"1010"},
-  {re:/seguro|insurance/i, code:"6400"},
-  {re:/facebook|instagram|google ads|publicidad/i, code:"6500"},
-  {re:/delivery|fedex|ups|correo|envio|transporte/i, code:"6600"},
-  {re:/zoho|dropbox|software|suscripcion/i, code:"6700"},
-  {re:/cpa|abogado|legal|contable/i, code:"6800"},
-  {re:/mantenimiento|reparacion/i, code:"6900"},
-  {re:/luz|apa|water|internet|claro|liberty/i, code:"6300"},
-  {re:/alquiler|renta|rent/i, code:"6200"},
-  {re:/nomina|sueldo|salario|payroll/i, code:"6100"},
-  {re:/ivu|sales tax/i, code:"8100"},
+const AUTO_RULES=[
+  {re:/advance\s*servic/i,code:"2300"},
+  {re:/visa.*5064|5064.*visa/i,code:"2100"},
+  {re:/7251/i,code:"6200"},
+  {re:/aliexpress/i,code:"5010"},
+  {re:/alipay/i,code:"5010"},
+  {re:/lanco|any time 65|international tos/i,code:"5020"},
+  {re:/facebook|instagram|meta|metaplatfor/i,code:"6500"},
+  {re:/canva|zoho|google|web page|91wms|tacktile/i,code:"6700"},
+  {re:/autoexpreso|uber|peaje|gasolina/i,code:"6600"},
+  {re:/cargo.*servicio|servicios comerciales|mbc online/i,code:"7000"},
+  {re:/cargo ivu estatal/i,code:"8100"},
+  {re:/cargo ivu municipal/i,code:"8200"},
+  {re:/seguro|insurance/i,code:"6400"},
+  {re:/la peninsula/i,code:"7100"},
+  {re:/nomina|sueldo|salario|payroll/i,code:"6100"},
+  {re:/luz|apa|water|internet|claro|liberty/i,code:"6300"},
 ];
-const AUTO_INCOME = [
-  {re:/venta.*equipo|equipo.*venta/i, code:"4010"},
-  {re:/servicio.*tecnico|reparacion|repair/i, code:"4020"},
-  {re:/mayoreo|distribucion/i, code:"4030"},
-  {re:/repuesto|accesorio|parts/i, code:"4040"},
+const AUTO_INCOME=[
+  {re:/stripe/i,code:"4010"},
+  {re:/telepago.*3435|3435/i,code:"2400"},
+  {re:/devuelto|devoluc/i,code:"4090"},
+  {re:/servicio.*tecnico|reparacion/i,code:"4020"},
+  {re:/mayoreo|distribucion/i,code:"4030"},
 ];
 
 function autoCategory(tx){
@@ -235,31 +242,25 @@ const TABS=[
   {id:"ai",icon:"🤖",label:"Asistente IA",s:"ia"},
   {id:"settings",icon:"⚙️",label:"Configuración",s:"sistema"},
 ];
-
 const MONTHS=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const TYPE_COLOR={revenue:"#10b981",expense:"#ef4444",asset:"#3b82f6",liability:"#8b5cf6",equity:"#f59e0b"};
 const QUARTERS=[{label:"Q1",months:[0,1,2]},{label:"Q2",months:[3,4,5]},{label:"Q3",months:[6,7,8]},{label:"Q4",months:[9,10,11]}];
 const SEC_LABELS={reportes:"📊 Reportes",datos:"📁 Datos",ia:"✨ IA",sistema:"⚙️ Sistema"};
 
-// IVU PR
-const IVU_ESTATAL = 0.105;
-const IVU_MUNICIPAL = 0.01;
-const IVU_TOTAL = IVU_ESTATAL + IVU_MUNICIPAL;
-
 let S={
-  tab:"dashboard", year:2025,
-  settings:{companyName:"Genova Beauty & Equipment, LLC",state:"Puerto Rico",entity:"LLC",currency:"USD"},
+  tab:"dashboard",year:2025,
+  settings:{companyName:"Genova Beauty & Equipment, LLC",state:"Puerto Rico",entity:"LLC"},
   coa:DEFAULT_COA,
   bankAccounts:[
-    {id:"bp001",name:"Banco Popular Checking",bank:"Banco Popular",type:"checking",last4:"",color:"#7c3aed",note:"Cuenta principal"},
-    {id:"bp002",name:"Banco Popular Savings",bank:"Banco Popular",type:"savings",last4:"",color:"#a855f7",note:"Ahorros"},
+    {id:"bp001",name:"Banco Popular Checking ••4054",bank:"Banco Popular",type:"checking",color:"#7c3aed",note:"Cuenta principal"},
+    {id:"bp002",name:"Banco Popular Savings",bank:"Banco Popular",type:"savings",color:"#a855f7",note:"Ahorros"},
   ],
   years:[2025],txns:[],balanceEntries:[],aiMessages:[],
   filterSearch:"",filterCode:"",filterSign:"",
 };
 
 let db;
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open("genovaflow",1);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains("store"))d.createObjectStore("store");};r.onsuccess=e=>{db=e.target.result;res()};r.onerror=()=>rej("DB error");});}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open("genovaflow",2);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains("store"))d.createObjectStore("store");};r.onsuccess=e=>{db=e.target.result;res()};r.onerror=()=>rej();});}
 function dbGet(k){return new Promise((res,rej)=>{const tx=db.transaction("store","readonly");const r=tx.objectStore("store").get(k);r.onsuccess=()=>res(r.result);r.onerror=rej});}
 function dbSet(k,v){return new Promise((res,rej)=>{const tx=db.transaction("store","readwrite");tx.objectStore("store").put(v,k);tx.oncomplete=res;tx.onerror=rej;});}
 
@@ -291,8 +292,6 @@ function toast(msg,dur=3000){const el=document.getElementById("toast");el.textCo
 function escHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function getTxMonth(t){return new Date(t.date+"T00:00:00").getMonth()}
 function emptyState(icon,title,sub){return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><p style="font-size:12px;margin-top:8px;color:var(--muted)">${sub}</p></div>`}
-function setMsg(t){document.getElementById("sync-msg").textContent=t}
-function setErr(t){document.getElementById("sync-err").textContent=t}
 
 function buildNav(){
   const nav=document.getElementById("nav");let html="",last="";
@@ -305,47 +304,43 @@ function goTab(id){S.tab=id;S.filterSearch="";S.filterCode="";S.filterSign="";co
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
 function updateSidebar(){
   buildYearSelect();buildNav();
-  const net=S.txns.reduce((s,t)=>s+t.amount,0);
+  const opTxns=S.txns.filter(t=>!["2300","2400","2100","2500"].includes(t.coaCode));
+  const net=opTxns.reduce((s,t)=>s+t.amount,0);
   const el=document.getElementById("sidebar-net");
   el.textContent=fmt(net);el.style.color=net>=0?"#a855f7":"#ef4444";
   document.getElementById("sidebar-meta").textContent=`${S.year} · ${S.txns.length} transacciones`;
 }
 
+// ═══════════ DASHBOARD ═══════════
 function renderDashboard(){
   const txs=S.txns;
-  if(!txs.length)return emptyState("💜",`No hay datos para ${S.year}`,"Usa el botón ⬆️ Importar para cargar tus transacciones.");
-  const rev=txs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
-  const exp=txs.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+  if(!txs.length)return emptyState("💜",`No hay datos para ${S.year}`,"Usa ⬆️ Importar para cargar tus transacciones.");
+  const opTxns=txs.filter(t=>!["2300","2400","2100","2500"].includes(t.coaCode));
+  const rev=opTxns.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const exp=opTxns.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
   const net=rev-exp;
-  const margin=rev>0?((net/rev)*100).toFixed(1):"0.0";
-
-  // IVU estimado sobre ventas
   const ventas=txs.filter(t=>t.amount>0&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
-  const ivuEstatal=ventas*IVU_ESTATAL;
-  const ivuMunicipal=ventas*IVU_MUNICIPAL;
-
-  const monthly=Array.from({length:12},(_,m)=>({m,lbl:MONTHS[m],inc:txs.filter(t=>t.amount>0&&getTxMonth(t)===m).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.amount<0&&getTxMonth(t)===m).reduce((s,t)=>s+Math.abs(t.amount),0)}));
+  const ivuTotal=ventas*(IVU_ESTATAL+IVU_MUNICIPAL);
+  const monthly=Array.from({length:12},(_,m)=>({m,lbl:MONTHS[m],inc:opTxns.filter(t=>t.amount>0&&getTxMonth(t)===m).reduce((s,t)=>s+t.amount,0),exp:opTxns.filter(t=>t.amount<0&&getTxMonth(t)===m).reduce((s,t)=>s+Math.abs(t.amount),0)}));
   const now=new Date();const curM=S.year===now.getFullYear()?now.getMonth():11;
   const active=monthly.filter(m=>m.m<=curM||m.inc>0||m.exp>0);
   const maxVal=Math.max(...active.flatMap(m=>[m.inc,m.exp]),1);
   const svgW=560,svgH=140,pL=52,pR=12,pT=10,pB=28,cW=svgW-pL-pR,cH=svgH-pT-pB;
-  const colW=cW/active.length,barW=Math.min(colW*.35,18),gap=barW*.5;
+  const colW=cW/Math.max(active.length,1),barW=Math.min(colW*.35,18),gap=barW*.5;
   const yL=Array.from({length:5},(_,i)=>{const v=maxVal*(4-i)/4,y=pT+(cH*i/4);const l=v>=1000?`$${(v/1000).toFixed(1)}k`:`$${v.toFixed(0)}`;return`<line x1="${pL}" y1="${y.toFixed(1)}" x2="${svgW-pR}" y2="${y.toFixed(1)}" stroke="#2d1f4a" stroke-width="1" stroke-dasharray="3,3"/><text x="${(pL-4).toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#8b7aa8" font-size="9">${l}</text>`;}).join("");
   const bars=active.map((mo,i)=>{const cx=pL+i*colW+colW/2;const iH=mo.inc>0?Math.max((mo.inc/maxVal)*cH,3):0;const eH=mo.exp>0?Math.max((mo.exp/maxVal)*cH,3):0;return`<g>${mo.inc>0?`<rect x="${(cx-gap-barW).toFixed(1)}" y="${(pT+cH-iH).toFixed(1)}" width="${barW.toFixed(1)}" height="${iH.toFixed(1)}" fill="#a855f7" fill-opacity=".85" rx="2"/>`:""}${mo.exp>0?`<rect x="${(cx+gap).toFixed(1)}" y="${(pT+cH-eH).toFixed(1)}" width="${barW.toFixed(1)}" height="${eH.toFixed(1)}" fill="#ef4444" fill-opacity=".85" rx="2"/>`:""}` +`<text x="${cx.toFixed(1)}" y="${(svgH-pB+14).toFixed(1)}" text-anchor="middle" fill="#8b7aa8" font-size="9">${mo.lbl}</text></g>`;}).join("");
   const svg=`<svg class="chart-svg" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${pT+cH}" stroke="#3d2f5a" stroke-width="1"/><line x1="${pL}" y1="${(pT+cH).toFixed(1)}" x2="${svgW-pR}" y2="${(pT+cH).toFixed(1)}" stroke="#3d2f5a" stroke-width="1"/>${yL}${bars}</svg>`;
-
   const expMap={},incMap={};
-  txs.filter(t=>t.amount<0).forEach(t=>{const k=t.coaCode||"7100";expMap[k]=(expMap[k]||0)+Math.abs(t.amount)});
-  txs.filter(t=>t.amount>0).forEach(t=>{const k=t.coaCode||"4090";incMap[k]=(incMap[k]||0)+t.amount});
+  opTxns.filter(t=>t.amount<0).forEach(t=>{const k=t.coaCode||"7100";expMap[k]=(expMap[k]||0)+Math.abs(t.amount)});
+  opTxns.filter(t=>t.amount>0).forEach(t=>{const k=t.coaCode||"4090";incMap[k]=(incMap[k]||0)+t.amount});
   const topExp=Object.entries(expMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const topInc=Object.entries(incMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const recent=[...txs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
-
   return`<div class="grid">
-    <div class="card kpi"><div class="kpi-label">Ventas</div><div class="kpi-val" style="color:#a855f7">${fmt(rev)}</div><div class="kpi-sub">${txs.filter(t=>t.amount>0).length} transacciones</div></div>
-    <div class="card kpi"><div class="kpi-label">Gastos</div><div class="kpi-val" style="color:#ef4444">${fmt(exp)}</div><div class="kpi-sub">${txs.filter(t=>t.amount<0).length} transacciones</div></div>
-    <div class="card kpi"><div class="kpi-label">Utilidad Neta</div><div class="kpi-val" style="color:${net>=0?'#a855f7':'#ef4444'}">${fmt(net)}</div><div class="kpi-sub">Margen ${margin}%</div></div>
-    <div class="card kpi"><div class="kpi-label">IVU Estimado</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuEstatal+ivuMunicipal)}</div><div class="kpi-sub">10.5% + 1% sobre ${fmt(ventas)}</div></div>
+    <div class="card kpi"><div class="kpi-label">Ventas / Ingresos</div><div class="kpi-val" style="color:#a855f7">${fmt(rev)}</div><div class="kpi-sub">Operaciones reales</div></div>
+    <div class="card kpi"><div class="kpi-label">Gastos Operativos</div><div class="kpi-val" style="color:#ef4444">${fmt(exp)}</div><div class="kpi-sub">Sin préstamos</div></div>
+    <div class="card kpi"><div class="kpi-label">Utilidad Neta</div><div class="kpi-val" style="color:${net>=0?'#a855f7':'#ef4444'}">${fmt(net)}</div><div class="kpi-sub">Margen ${rev>0?((net/rev)*100).toFixed(1):0}%</div></div>
+    <div class="card kpi"><div class="kpi-label">IVU Estimado</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuTotal)}</div><div class="kpi-sub">11.5% sobre ${fmt(ventas)}</div></div>
   </div>
   <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
     <div class="card" style="flex:2;min-width:260px">
@@ -353,11 +348,11 @@ function renderDashboard(){
       <div class="chart-wrap">${svg}</div>
     </div>
     <div class="card" style="flex:1;min-width:180px;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05)">
-      <div class="section-title" style="color:#f59e0b">🧾 IVU Estimado ${S.year}</div>
-      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">Ventas sujetas a IVU</div><div style="font-family:var(--serif);font-size:16px;color:#a855f7">${fmt(ventas)}</div></div>
-      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">IVU Estatal (10.5%)</div><div style="font-family:var(--serif);font-size:16px;color:#f59e0b">${fmt(ivuEstatal)}</div></div>
-      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">IVU Municipal (1%)</div><div style="font-family:var(--serif);font-size:16px;color:#f59e0b">${fmt(ivuMunicipal)}</div></div>
-      <div style="border-top:1px solid rgba(245,158,11,.3);padding-top:8px"><div style="font-size:11px;color:var(--muted)">Total IVU</div><div style="font-family:var(--serif);font-size:20px;font-weight:600;color:#f59e0b">${fmt(ivuEstatal+ivuMunicipal)}</div></div>
+      <div class="section-title" style="color:#f59e0b">🧾 IVU ${S.year}</div>
+      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">Ventas sujetas</div><div style="font-family:var(--serif);font-size:16px;color:#a855f7">${fmt(ventas)}</div></div>
+      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">IVU Estatal 10.5%</div><div style="font-family:var(--serif);font-size:15px;color:#f59e0b">${fmt(ventas*IVU_ESTATAL)}</div></div>
+      <div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted)">IVU Municipal 1%</div><div style="font-family:var(--serif);font-size:15px;color:#f59e0b">${fmt(ventas*IVU_MUNICIPAL)}</div></div>
+      <div style="border-top:1px solid rgba(245,158,11,.3);padding-top:8px"><div style="font-size:11px;color:var(--muted)">Total IVU</div><div style="font-family:var(--serif);font-size:20px;font-weight:600;color:#f59e0b">${fmt(ivuTotal)}</div></div>
     </div>
   </div>
   <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
@@ -367,6 +362,7 @@ function renderDashboard(){
   <div class="card"><div class="section-title">Últimas Transacciones</div><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th></tr></thead><tbody>${recent.map(t=>`<tr><td style="color:var(--muted);white-space:nowrap">${fmtDate(t.date)}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.description)}</td><td>${catTag(t.coaCode)}</td><td style="text-align:right;color:${t.amount>=0?'#a855f7':'#ef4444'};font-weight:600">${fmt(t.amount)}</td></tr>`).join("")}</tbody></table><div style="margin-top:10px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="goTab('txns')">Ver todas →</button></div></div>`;
 }
 
+// ═══════════ P&L ═══════════
 function renderPL(){
   const revA=S.coa.filter(c=>c.type==="revenue"&&c.group!=="header");
   const expA=S.coa.filter(c=>c.type==="expense"&&c.group!=="header");
@@ -378,9 +374,8 @@ function renderPL(){
   <tr class="pl-section"><td colspan="2">GASTOS</td></tr>${expA.map(a=>{const v=sum(a.code);return v>0?`<tr class="pl-row"><td>${a.code} · ${escHtml(a.name)}</td><td style="text-align:right;color:#ef4444">(${fmt(v,true)})</td></tr>`:""}).join("")}<tr class="pl-total" style="color:#ef4444"><td>TOTAL GASTOS</td><td style="text-align:right">(${fmt(tE,true)})</td></tr>
   <tr class="pl-net" style="color:${net>=0?'#a855f7':'#ef4444'}"><td>UTILIDAD NETA</td><td style="text-align:right">${fmt(net)}</td></tr>${tR>0?`<tr><td style="padding:4px 10px 10px;font-size:11px;color:var(--muted)">Margen</td><td style="text-align:right;padding:4px 10px 10px;font-size:11px;color:${net>=0?'#a855f7':'#ef4444'}">${((net/tR)*100).toFixed(1)}%</td></tr>`:""}</tbody></table></div>
   <div id="pl-ai-result"></div>
-  <div class="card" style="background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.25)"><div style="font-size:11px;color:#f59e0b;font-weight:600;margin-bottom:4px">⚠️ Nota Fiscal · Puerto Rico LLC</div><div style="font-size:11px;color:var(--muted);line-height:1.7">IVU sobre ventas: 10.5% estatal + 1% municipal = 11.5% total.<br>Contribución sobre ingresos: según tabla de Hacienda PR.<br>Consulta tu CPA para declaración definitiva (Formulario SC 2800).</div></div></div>`;
+  <div class="card" style="background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.25)"><div style="font-size:11px;color:#f59e0b;font-weight:600;margin-bottom:4px">⚠️ Nota Fiscal · Puerto Rico LLC</div><div style="font-size:11px;color:var(--muted);line-height:1.7">IVU: 10.5% estatal + 1% municipal = 11.5% total sobre ventas.<br>Consulta tu CPA (Formulario SC 2800 · Hacienda PR).</div></div></div>`;
 }
-
 async function aiSummarizePL(){
   const revA=S.coa.filter(c=>c.type==="revenue"&&c.group!=="header");
   const expA=S.coa.filter(c=>c.type==="expense"&&c.group!=="header");
@@ -389,11 +384,10 @@ async function aiSummarizePL(){
   const el=document.getElementById("pl-ai-result");if(!el)return;
   el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(124,58,237,.3)"><div class="ai-typing"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div></div>`;
   try{
-    const resp=await callClaude(`CFO de ${S.settings.companyName}, LLC en Puerto Rico. Distribución y servicio de equipos de estética. Analiza P&L ${S.year}. Ingresos:${fmt(tR)} Gastos:${fmt(tE)} Neto:${fmt(net)}. IVU 10.5% estatal + 1% municipal. Resumen ejecutivo en español, máx 200 palabras.`);
+    const resp=await callClaude(`CFO de ${S.settings.companyName}, LLC en Puerto Rico. Distribución y servicio de equipos de estética. P&L ${S.year}: Ingresos ${fmt(tR)}, Gastos ${fmt(tE)}, Neto ${fmt(net)}. IVU 11.5%. Resumen ejecutivo en español máx 200 palabras.`);
     el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.05)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span>🤖</span><span style="color:var(--accent2);font-weight:600">Resumen Ejecutivo IA</span></div><div style="font-size:12px;line-height:1.8;white-space:pre-wrap">${escHtml(resp)}</div></div>`;
-  }catch(e){el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(239,68,68,.3)"><span style="color:var(--red);font-size:12px">❌ ${escHtml(e.message)}</span></div>`}
+  }catch(e){el.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(239,68,68,.3)"><span style="color:var(--red)">❌ ${escHtml(e.message)}</span></div>`}
 }
-
 function exportPL(){
   const revA=S.coa.filter(c=>c.type==="revenue"&&c.group!=="header");
   const expA=S.coa.filter(c=>c.type==="expense"&&c.group!=="header");
@@ -407,66 +401,115 @@ function exportPL(){
   downloadFile(`PL_Genova_${S.year}.csv`,csv,"text/csv");
 }
 
+// ═══════════ BALANCE GENERAL ═══════════
 function renderBalance(){
   const entries=S.balanceEntries.filter(e=>e.year===S.year);
-  const assetE=entries.filter(e=>e.type==="asset"),liabE=entries.filter(e=>e.type==="liability");
-  const tA=assetE.reduce((s,e)=>s+e.amount,0),tL=liabE.reduce((s,e)=>s+e.amount,0);
-  const eq=tA-tL,netInc=S.txns.reduce((s,t)=>s+t.amount,0);
-  return`<div style="max-width:680px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:600">Balance General</div><button class="btn btn-primary btn-sm" onclick="showModal('add-balance')">+ Agregar</button></div>
-  <div class="grid"><div class="card kpi"><div class="kpi-label">Total Activos</div><div class="kpi-val" style="color:#3b82f6">${fmt(tA)}</div></div><div class="card kpi"><div class="kpi-label">Total Pasivos</div><div class="kpi-val" style="color:#8b5cf6">${fmt(tL)}</div></div><div class="card kpi"><div class="kpi-label">Patrimonio</div><div class="kpi-val" style="color:${eq>=0?'#a855f7':'#ef4444'}">${fmt(eq+netInc)}</div></div></div>
-  <div style="display:flex;gap:14px;flex-wrap:wrap">
-  <div class="card" style="flex:1;min-width:240px"><div class="section-title" style="color:#3b82f6">ACTIVOS</div><table><thead><tr><th>Descripción</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${assetE.map(e=>`<tr><td>${escHtml(e.name)}</td><td style="text-align:right;color:#3b82f6">${fmt(e.amount)}</td><td><button onclick="removeBalanceEntry('${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button></td></tr>`).join("")}${!assetE.length?`<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:20px">Sin activos</td></tr>`:""}</tbody></table></div>
-  <div class="card" style="flex:1;min-width:240px"><div class="section-title" style="color:#8b5cf6">PASIVOS</div><table><thead><tr><th>Descripción</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${liabE.map(e=>`<tr><td>${escHtml(e.name)}</td><td style="text-align:right;color:#8b5cf6">${fmt(e.amount)}</td><td><button onclick="removeBalanceEntry('${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button></td></tr>`).join("")}${!liabE.length?`<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:20px">Sin pasivos</td></tr>`:""}</tbody></table></div>
+  const assetE=entries.filter(e=>e.type==="asset");
+  const liabE=entries.filter(e=>e.type==="liability");
+  const tA=assetE.reduce((s,e)=>s+e.amount,0);
+  const tL=liabE.reduce((s,e)=>s+e.amount,0);
+
+  // Calcular préstamos automáticamente desde transacciones
+  const saldoCuenta=code=>{
+    const ent=S.txns.filter(t=>t.coaCode===code&&t.amount>0).reduce((s,t)=>s+t.amount,0);
+    const sal=S.txns.filter(t=>t.coaCode===code&&t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+    return ent-sal;
+  };
+  const prestamo2300=saldoCuenta("2300");
+  const prestamo2400=saldoCuenta("2400");
+  const saldoTarjeta=saldoCuenta("2100");
+  const costoVentas=S.txns.filter(t=>["5010","5020"].includes(t.coaCode)&&t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const opTxns=S.txns.filter(t=>!["2300","2400","2100","2500"].includes(t.coaCode));
+  const netInc=opTxns.reduce((s,t)=>s+t.amount,0);
+  const totalPasivosAuto=Math.max(0,prestamo2300)+Math.max(0,prestamo2400)+Math.max(0,saldoTarjeta);
+  const totalPasivos=tL+totalPasivosAuto;
+  const totalActivos=tA+costoVentas;
+  const patrimonio=totalActivos-totalPasivos+netInc;
+
+  return`<div style="max-width:780px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:600">Balance General · ${S.year}</div><button class="btn btn-primary btn-sm" onclick="showModal('add-balance')">+ Agregar Activo/Pasivo</button></div>
+  <div class="grid">
+    <div class="card kpi"><div class="kpi-label">Total Activos</div><div class="kpi-val" style="color:#3b82f6">${fmt(totalActivos)}</div><div class="kpi-sub">Manuales + Inventario est.</div></div>
+    <div class="card kpi"><div class="kpi-label">Total Pasivos</div><div class="kpi-val" style="color:#8b5cf6">${fmt(totalPasivos)}</div><div class="kpi-sub">Manuales + Préstamos auto</div></div>
+    <div class="card kpi"><div class="kpi-label">Utilidad Neta</div><div class="kpi-val" style="color:${netInc>=0?'#a855f7':'#ef4444'}">${fmt(netInc)}</div><div class="kpi-sub">Operaciones ${S.year}</div></div>
+    <div class="card kpi"><div class="kpi-label">Patrimonio</div><div class="kpi-val" style="color:${patrimonio>=0?'#10b981':'#ef4444'}">${fmt(patrimonio)}</div><div class="kpi-sub">Activos - Pasivos + Utilidad</div></div>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+    <div class="card" style="flex:1;min-width:240px">
+      <div class="section-title" style="color:#3b82f6">ACTIVOS</div>
+      <table><thead><tr><th>Descripción</th><th style="text-align:right">Valor</th><th></th></tr></thead>
+      <tbody>
+        ${assetE.map(e=>`<tr><td>${escHtml(e.name)}<br><span style="font-size:10px;color:var(--muted)">${escHtml(e.note||"")}</span></td><td style="text-align:right;color:#3b82f6;font-weight:600">${fmt(e.amount)}</td><td><button onclick="removeBalanceEntry('${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button></td></tr>`).join("")}
+        ${costoVentas>0?`<tr style="opacity:.8"><td>Inventario / Compras acumuladas<br><span style="font-size:10px;color:var(--muted)">Auto desde cuentas 5010 y 5020</span></td><td style="text-align:right;color:#3b82f6">${fmt(costoVentas)}</td><td></td></tr>`:""}
+        ${!assetE.length&&costoVentas===0?`<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:20px">Agrega activos manualmente (cuentas, equipo, etc.)</td></tr>`:""}
+      </tbody></table>
+      <div style="border-top:1px solid var(--border);padding:10px;text-align:right;font-family:var(--serif);font-size:14px;font-weight:600;color:#3b82f6">Total Activos: ${fmt(totalActivos)}</div>
+    </div>
+    <div class="card" style="flex:1;min-width:240px">
+      <div class="section-title" style="color:#8b5cf6">PASIVOS</div>
+      <table><thead><tr><th>Descripción</th><th style="text-align:right">Saldo</th><th></th></tr></thead>
+      <tbody>
+        ${liabE.map(e=>`<tr><td>${escHtml(e.name)}</td><td style="text-align:right;color:#8b5cf6;font-weight:600">${fmt(e.amount)}</td><td><button onclick="removeBalanceEntry('${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button></td></tr>`).join("")}
+        ${prestamo2300!==0?`<tr style="background:rgba(139,92,246,.05)"><td>Préstamo Advance Servicing<br><span style="font-size:10px;color:var(--muted)">Saldo neto auto (cuenta 2300)</span></td><td style="text-align:right;color:${prestamo2300>0?'#ef4444':'#10b981'};font-weight:600">${fmt(Math.abs(prestamo2300))}</td><td></td></tr>`:""}
+        ${prestamo2400!==0?`<tr style="background:rgba(139,92,246,.05)"><td>Préstamo Socio / Empresario<br><span style="font-size:10px;color:var(--muted)">Saldo neto auto (cuenta 2400)</span></td><td style="text-align:right;color:${prestamo2400>0?'#ef4444':'#10b981'};font-weight:600">${fmt(Math.abs(prestamo2400))}</td><td></td></tr>`:""}
+        ${saldoTarjeta>0?`<tr style="background:rgba(139,92,246,.05)"><td>Tarjeta de Crédito BP<br><span style="font-size:10px;color:var(--muted)">Saldo neto auto (cuenta 2100)</span></td><td style="text-align:right;color:#ef4444;font-weight:600">${fmt(saldoTarjeta)}</td><td></td></tr>`:""}
+      </tbody></table>
+      <div style="border-top:2px solid var(--border);padding:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--muted)">Total Pasivos:</span><span style="color:#8b5cf6;font-weight:600">${fmt(totalPasivos)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--muted)">Utilidad Neta ${S.year}:</span><span style="color:${netInc>=0?'#a855f7':'#ef4444'};font-weight:600">${fmt(netInc)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:600;margin-top:8px;border-top:1px solid var(--border);padding-top:8px"><span>Patrimonio:</span><span style="color:${patrimonio>=0?'#10b981':'#ef4444'}">${fmt(patrimonio)}</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);line-height:1.9;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+    💡 <strong>Activos manuales:</strong> Agrega saldos de cuentas bancarias, equipos, propiedades con "+ Agregar".<br>
+    💡 <strong>Inventario estimado:</strong> Suma automática de compras en cuentas 5010 y 5020.<br>
+    💡 <strong>Préstamos:</strong> Calculados automáticamente — entradas menos pagos = saldo pendiente.<br>
+    ⚠️ Para un balance formal, consulta tu CPA en Puerto Rico.
   </div></div>`;
 }
 async function removeBalanceEntry(id){S.balanceEntries=S.balanceEntries.filter(e=>e.id!==id);await saveBalanceEntries();renderContent();}
 
+// ═══════════ IVU & IMPUESTOS ═══════════
 function renderTaxes(){
   const txs=S.txns;
   const ventas=txs.filter(t=>t.amount>0&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
-  const otrosIng=txs.filter(t=>t.amount>0&&t.coaCode==="4090").reduce((s,t)=>s+t.amount,0);
-  const totalIng=ventas+otrosIng;
-  const ivuEstatal=ventas*IVU_ESTATAL;
-  const ivuMunicipal=ventas*IVU_MUNICIPAL;
-  const ivuTotal=ivuEstatal+ivuMunicipal;
-  const gastos=txs.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
-  const utilidad=totalIng-gastos;
-
+  const ivuE=ventas*IVU_ESTATAL,ivuM=ventas*IVU_MUNICIPAL;
   const qRows=QUARTERS.map(q=>{
-    const qVentas=txs.filter(t=>t.amount>0&&q.months.includes(getTxMonth(t))&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
-    const qIvuE=qVentas*IVU_ESTATAL,qIvuM=qVentas*IVU_MUNICIPAL;
+    const qV=txs.filter(t=>t.amount>0&&q.months.includes(getTxMonth(t))&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
     const due=q.label==="Q1"?"Abr 20":q.label==="Q2"?"Jul 20":q.label==="Q3"?"Oct 20":"Ene 20";
-    return`<tr><td style="font-weight:600;color:var(--accent2)">${q.label}</td><td style="text-align:right;color:#a855f7">${qVentas>0?fmt(qVentas):"—"}</td><td style="text-align:right;color:#f59e0b">${qIvuE>0?fmt(qIvuE):"—"}</td><td style="text-align:right;color:#f59e0b">${qIvuM>0?fmt(qIvuM):"—"}</td><td style="text-align:right;color:var(--red);font-weight:600">${(qIvuE+qIvuM)>0?fmt(qIvuE+qIvuM):"$0"}</td><td><span class="tag tag-gold">${due}</span></td></tr>`;
+    return`<tr><td style="font-weight:600;color:var(--accent2)">${q.label}</td><td style="text-align:right;color:#a855f7">${qV>0?fmt(qV):"—"}</td><td style="text-align:right;color:#f59e0b">${qV>0?fmt(qV*IVU_ESTATAL):"—"}</td><td style="text-align:right;color:#f59e0b">${qV>0?fmt(qV*IVU_MUNICIPAL):"—"}</td><td style="text-align:right;color:var(--red);font-weight:600">${qV>0?fmt(qV*(IVU_ESTATAL+IVU_MUNICIPAL)):"$0"}</td><td><span class="tag tag-gold">${due}</span></td></tr>`;
   }).join("");
-
   return`<div style="max-width:800px"><div style="font-size:15px;font-weight:600;margin-bottom:6px">IVU & Impuestos · ${S.year}</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px">Puerto Rico · IVU 10.5% Estatal + 1% Municipal</div>
-  <div class="grid"><div class="card kpi"><div class="kpi-label">Ventas Sujetas IVU</div><div class="kpi-val" style="color:#a855f7">${fmt(ventas)}</div></div><div class="card kpi"><div class="kpi-label">IVU Estatal (10.5%)</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuEstatal)}</div></div><div class="card kpi"><div class="kpi-label">IVU Municipal (1%)</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuMunicipal)}</div></div><div class="card kpi"><div class="kpi-label">Total IVU Est.</div><div class="kpi-val" style="color:var(--red)">${fmt(ivuTotal)}</div></div></div>
-  <div class="card card-sm" style="margin-bottom:16px"><div class="section-title">Declaraciones Trimestrales IVU (Hacienda PR)</div><div style="overflow-x:auto"><table style="font-size:11px;min-width:500px"><thead><tr><th>Trimestre</th><th style="text-align:right;color:#a855f7">Ventas</th><th style="text-align:right;color:#f59e0b">IVU Estatal</th><th style="text-align:right;color:#f59e0b">IVU Municipal</th><th style="text-align:right;color:var(--red)">Total</th><th>Vence</th></tr></thead><tbody>${qRows}</tbody></table></div></div>
+  <div class="grid"><div class="card kpi"><div class="kpi-label">Ventas Sujetas IVU</div><div class="kpi-val" style="color:#a855f7">${fmt(ventas)}</div></div><div class="card kpi"><div class="kpi-label">IVU Estatal 10.5%</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuE)}</div></div><div class="card kpi"><div class="kpi-label">IVU Municipal 1%</div><div class="kpi-val" style="color:#f59e0b">${fmt(ivuM)}</div></div><div class="card kpi"><div class="kpi-label">Total IVU</div><div class="kpi-val" style="color:var(--red)">${fmt(ivuE+ivuM)}</div></div></div>
+  <div class="card card-sm" style="margin-bottom:16px"><div class="section-title">Declaraciones Trimestrales IVU (Hacienda PR)</div><div style="overflow-x:auto"><table style="font-size:11px;min-width:500px"><thead><tr><th>Q</th><th style="text-align:right;color:#a855f7">Ventas</th><th style="text-align:right;color:#f59e0b">IVU Estatal</th><th style="text-align:right;color:#f59e0b">IVU Municipal</th><th style="text-align:right;color:var(--red)">Total</th><th>Vence</th></tr></thead><tbody>${qRows}</tbody></table></div></div>
   <div style="display:flex;gap:14px;flex-wrap:wrap">
   <div class="card" style="flex:1;min-width:220px;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05)"><div style="font-size:12px;font-weight:600;color:#f59e0b;margin-bottom:10px">📅 Calendario Fiscal PR</div>
-    ${[{d:"Ene 20",e:"Planilla IVU Q4"},{d:"Feb 28",e:"Informe anual W-2/499R-2"},{d:"Abr 15",e:"Planilla Contribución sobre Ingresos"},{d:"Abr 20",e:"Planilla IVU Q1"},{d:"Jul 20",e:"Planilla IVU Q2"},{d:"Oct 20",e:"Planilla IVU Q3"}].map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(45,31,74,.5)"><span style="color:#f59e0b;font-size:11px;min-width:70px">${x.d}</span><span style="font-size:11px">${x.e}</span></div>`).join("")}
+    ${[{d:"Ene 20",e:"Planilla IVU Q4"},{d:"Feb 28",e:"Informe W-2/499R-2"},{d:"Abr 15",e:"Planilla Contribución Ingresos"},{d:"Abr 20",e:"Planilla IVU Q1"},{d:"Jul 20",e:"Planilla IVU Q2"},{d:"Oct 20",e:"Planilla IVU Q3"}].map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(45,31,74,.5)"><span style="color:#f59e0b;font-size:11px;min-width:70px">${x.d}</span><span style="font-size:11px">${x.e}</span></div>`).join("")}
   </div>
-  <div class="card" style="flex:1;min-width:220px;border-color:rgba(124,58,237,.3)"><div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">💡 Tips Fiscales PR</div><div style="font-size:11px;color:var(--muted);line-height:1.9">✅ Registra en SURI (suri.hacienda.pr.gov)<br>✅ Guarda todos los recibos de compra<br>✅ Separa IVU cobrado del ingreso<br>✅ Crédito IVU por compras de negocio<br>✅ Inventario deducible (Sección 1033)<br>✅ Depreciación de equipos (Sección 1040)<br>⚠️ Consulta tu CPA en PR</div></div>
+  <div class="card" style="flex:1;min-width:220px;border-color:rgba(124,58,237,.3)"><div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">💡 Tips Fiscales PR</div><div style="font-size:11px;color:var(--muted);line-height:1.9">✅ Registra en SURI (suri.hacienda.pr.gov)<br>✅ Separa IVU cobrado del ingreso<br>✅ Crédito IVU por compras de negocio<br>✅ Inventario deducible (Sección 1033)<br>✅ Depreciación equipos (Sección 1040)<br>⚠️ Consulta tu CPA en PR</div></div>
   </div></div>`;
 }
 
+// ═══════════ TRANSACCIONES ═══════════
 function renderTxns(){
   const lc=S.coa.filter(c=>c.group!=="header");
-  const filtered=S.txns.filter(t=>{const q=S.filterSearch.toLowerCase();if(q&&!`${t.description} ${t.counterparty}`.toLowerCase().includes(q))return false;if(S.filterCode&&t.coaCode!==S.filterCode)return false;if(S.filterSign==="income"&&t.amount<=0)return false;if(S.filterSign==="expense"&&t.amount>=0)return false;return true;}).sort((a,b)=>b.date.localeCompare(a.date));
-  return`<div class="card card-sm" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input style="width:200px" placeholder="🔍 Buscar..." value="${escHtml(S.filterSearch)}" oninput="S.filterSearch=this.value;renderContent()"><select style="max-width:220px" onchange="S.filterCode=this.value;renderContent()"><option value="">Todas las categorías</option>${lc.map(c=>`<option value="${c.code}" ${c.code===S.filterCode?"selected":""}>${c.code} – ${escHtml(c.name)}</option>`).join("")}</select><select onchange="S.filterSign=this.value;renderContent()"><option value="" ${!S.filterSign?"selected":""}>Todos</option><option value="income">Ingresos</option><option value="expense">Gastos</option></select><div style="flex:1"></div><button class="btn btn-ghost btn-sm" onclick="autoAll()">⚡ Auto-categorizar</button><button class="btn btn-primary btn-sm" onclick="showModal('add-tx')">+ Manual</button></div></div>
-  <div class="card card-sm"><div style="font-size:11px;color:var(--muted);margin-bottom:10px">${filtered.length} transacciones</div><div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>${filtered.map(t=>{const opts=lc.map(c=>`<option value="${c.code}" ${c.code===t.coaCode?"selected":""}>${c.code} – ${escHtml(c.name)}</option>`).join("");return`<tr><td style="color:var(--muted);white-space:nowrap;font-size:11px">${fmtDateFull(t.date)}</td><td style="max-width:240px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.description)}</div>${t.isManual?'<span class="tag tag-gold">Manual</span>':""}</td><td><select style="font-size:11px;max-width:200px" onchange="updateTxCoa('${t.id}',this.value)"><option value="">Sin categoría</option>${opts}</select></td><td style="text-align:right;color:${t.amount>=0?'#a855f7':'#ef4444'};font-weight:600;white-space:nowrap">${fmt(t.amount)}</td><td>${t.isManual?`<button onclick="deleteTx('${t.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button>`:""}</td></tr>`;}).join("")}${filtered.length===0?`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Sin resultados</td></tr>`:""}</tbody></table></div></div>`;
+  const filtered=S.txns.filter(t=>{const q=S.filterSearch.toLowerCase();if(q&&!`${t.description} ${t.counterparty||""}`.toLowerCase().includes(q))return false;if(S.filterCode&&t.coaCode!==S.filterCode)return false;if(S.filterSign==="income"&&t.amount<=0)return false;if(S.filterSign==="expense"&&t.amount>=0)return false;return true;}).sort((a,b)=>b.date.localeCompare(a.date));
+  return`<div class="card card-sm" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input style="width:200px" placeholder="🔍 Buscar..." value="${escHtml(S.filterSearch)}" oninput="S.filterSearch=this.value;renderContent()"><select style="max-width:220px" onchange="S.filterCode=this.value;renderContent()"><option value="">Todas las categorías</option>${lc.map(c=>`<option value="${c.code}" ${c.code===S.filterCode?"selected":""}>${c.code} – ${escHtml(c.name)}</option>`).join("")}</select><select onchange="S.filterSign=this.value;renderContent()"><option value="" ${!S.filterSign?"selected":""}>Todos</option><option value="income">Ingresos/Créditos</option><option value="expense">Gastos/Débitos</option></select><div style="flex:1"></div><button class="btn btn-ghost btn-sm" onclick="autoAll()">⚡ Auto-categorizar</button><button class="btn btn-primary btn-sm" onclick="showModal('add-tx')">+ Manual</button></div></div>
+  <div class="card card-sm"><div style="font-size:11px;color:var(--muted);margin-bottom:10px">${filtered.length} transacciones</div><div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>${filtered.map(t=>{const opts=lc.map(c=>`<option value="${c.code}" ${c.code===t.coaCode?"selected":""}>${c.code} – ${escHtml(c.name)}</option>`).join("");return`<tr><td style="color:var(--muted);white-space:nowrap;font-size:11px">${fmtDateFull(t.date)}</td><td style="max-width:240px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.description)}</div>${t.isManual?'<span class="tag tag-gold">Manual</span>':""}</td><td><select style="font-size:11px;max-width:220px" onchange="updateTxCoa('${t.id}',this.value)"><option value="">Sin categoría</option>${opts}</select></td><td style="text-align:right;color:${t.amount>=0?'#a855f7':'#ef4444'};font-weight:600;white-space:nowrap">${fmt(t.amount)}</td><td>${t.isManual?`<button onclick="deleteTx('${t.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button>`:""}</td></tr>`;}).join("")}${filtered.length===0?`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Sin resultados</td></tr>`:""}</tbody></table></div></div>`;
 }
 async function updateTxCoa(id,code){S.txns=S.txns.map(t=>t.id===id?{...t,coaCode:code}:t);await saveTxns();updateSidebar();}
 async function autoAll(){S.txns=S.txns.map(t=>({...t,coaCode:autoCategory(t)}));await saveTxns();renderContent();toast("✅ Auto-categorización completa")}
 async function deleteTx(id){S.txns=S.txns.filter(t=>t.id!==id);await saveTxns();renderContent();updateSidebar();}
 
+// ═══════════ PLAN DE CUENTAS ═══════════
 function renderCoa(){
   return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div style="font-size:15px;font-weight:600">Plan de Cuentas</div><button class="btn btn-primary btn-sm" onclick="showModal('add-coa')">+ Nueva</button></div><div class="card card-sm"><table><thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th></th></tr></thead><tbody>${S.coa.map(c=>`<tr style="${c.group==="header"?"background:var(--row)":""}"><td style="font-weight:${c.group==="header"?600:400}">${c.code}</td><td style="padding-left:${c.group==="header"?10:22}px">${escHtml(c.name)}</td><td>${c.group!=="header"?`<span class="tag" style="background:${TYPE_COLOR[c.type]||'#6b7280'}20;color:${TYPE_COLOR[c.type]||'#6b7280'};border:1px solid ${TYPE_COLOR[c.type]||'#6b7280'}40;font-size:10px">${c.type}</span>`:""}</td><td>${c.group!=="header"?`<button onclick="removeCoa('${c.code}')" style="background:none;border:none;color:var(--muted);cursor:pointer">✕</button>`:""}</td></tr>`).join("")}</tbody></table></div>`;
 }
 async function removeCoa(code){S.coa=S.coa.filter(c=>c.code!==code);await saveCoa();renderContent();}
 
+// ═══════════ ASISTENTE IA ═══════════
 function renderAI(){
-  const sugs=["¿Cuáles son mis ventas más altas?","¿Cuánto IVU debo este trimestre?","¿Cuál es mi margen de utilidad?","¿Qué gastos puedo reducir?","Dame un resumen del año"];
+  const sugs=["¿Cuáles son mis ventas más altas?","¿Cuánto IVU debo este trimestre?","¿Cuál es mi margen de utilidad?","¿Qué gastos puedo reducir?","¿Cuánto le debo al empresario?"];
   return`<div style="max-width:700px;display:flex;flex-direction:column;height:calc(100vh - 140px)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div><div style="font-size:15px;font-weight:600">Asistente Financiero IA</div><div style="font-size:11px;color:var(--muted)">Tu CFO digital · ${S.year}</div></div><button class="btn btn-ghost btn-sm" onclick="clearAiChat()">🗑 Limpiar</button></div>
   <div id="ai-chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:10px;max-height:calc(100vh - 280px)">${S.aiMessages.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">💜</div><div style="font-size:14px;color:var(--text);margin-bottom:16px">Tu CFO digital está listo</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${sugs.map(q=>`<button class="btn btn-ghost btn-sm" onclick="sendAiQuestion('${q.replace(/'/g,"\\'")}')"><span style="font-size:10px">${q}</span></button>`).join("")}</div></div>`:S.aiMessages.map(m=>`<div class="ai-bubble ${m.role}">${m.role==="ai"?'<span style="font-size:16px;margin-right:6px">🤖</span>':""}<span style="white-space:pre-wrap">${escHtml(m.content)}</span></div>`).join("")}</div>
   <div style="display:flex;gap:8px;margin-top:10px;padding-top:12px;border-top:1px solid var(--border)"><input id="ai-input" placeholder="Pregunta sobre tus finanzas…" style="flex:1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}"><button class="btn btn-primary" onclick="sendAiMessage()" id="ai-send-btn">Enviar</button></div></div>`;
@@ -476,10 +519,13 @@ async function sendAiQuestion(msg){
   S.aiMessages.push({role:"user",content:msg});renderContent();
   setTimeout(()=>{const el=document.getElementById("ai-chat-messages");if(el)el.scrollTop=el.scrollHeight},50);
   const btn=document.getElementById("ai-send-btn");if(btn)btn.disabled=true;
-  const rev=S.txns.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
-  const exp=S.txns.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0),net=rev-exp;
+  const opTxns=S.txns.filter(t=>!["2300","2400","2100","2500"].includes(t.coaCode));
+  const rev=opTxns.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const exp=opTxns.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
   const ventas=S.txns.filter(t=>t.amount>0&&["4010","4020","4030","4040"].includes(t.coaCode)).reduce((s,t)=>s+t.amount,0);
-  const sys=`Eres el CFO de ${S.settings.companyName}, LLC en Puerto Rico. Empresa de distribución y servicio técnico de equipos de estética.\nAño: ${S.year} | Ventas: ${fmt(rev)} | Gastos: ${fmt(exp)} | Utilidad: ${fmt(net)}\nIVU estimado: ${fmt(ventas*0.115)} (10.5% estatal + 1% municipal sobre ${fmt(ventas)})\nRégimen fiscal: Puerto Rico LLC, IVU, Hacienda PR.\nResponde en español, directo y práctico. Máx 200 palabras.`;
+  const saldoP2300=S.txns.filter(t=>t.coaCode==="2300").reduce((s,t)=>s+t.amount,0);
+  const saldoP2400=S.txns.filter(t=>t.coaCode==="2400").reduce((s,t)=>s+t.amount,0);
+  const sys=`Eres el CFO de ${S.settings.companyName}, LLC en Puerto Rico. Distribución y servicio técnico de equipos de estética.\nAño: ${S.year} | Ventas: ${fmt(rev)} | Gastos: ${fmt(exp)} | Utilidad: ${fmt(rev-exp)}\nIVU estimado: ${fmt(ventas*0.115)} (10.5% + 1% sobre ${fmt(ventas)})\nPréstamo Advance Servicing (saldo): ${fmt(Math.abs(saldoP2300))}\nPréstamo Socio (saldo neto): ${fmt(saldoP2400)}\nRégimen: Puerto Rico LLC, IVU Hacienda PR.\nResponde en español, directo y práctico. Máx 200 palabras.`;
   try{
     const history=S.aiMessages.slice(-8).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}));
     const resp=await callClaudeWithSystem(sys,history);
@@ -489,13 +535,14 @@ async function sendAiQuestion(msg){
   if(btn)btn.disabled=false;
 }
 async function clearAiChat(){S.aiMessages=[];await saveAiMessages();renderContent();}
-async function runMonthlyAnalysis(){goTab("ai");await sendAiQuestion(`Dame un análisis completo de ${S.year}: ventas por categoría, IVU acumulado, gastos principales y 3 recomendaciones para mejorar la rentabilidad de Genova Beauty.`);}
+async function runMonthlyAnalysis(){goTab("ai");await sendAiQuestion(`Análisis completo ${S.year}: ventas por categoría, IVU acumulado, saldo préstamos, gastos principales y 3 recomendaciones para mejorar rentabilidad de Genova Beauty.`);}
 
+// ═══════════ CONFIGURACIÓN ═══════════
 function renderSettings(){
   return`<div style="max-width:640px;display:flex;flex-direction:column;gap:18px">
   <div class="card"><div class="section-title">🏢 Empresa</div><div class="input-row"><div style="flex:1"><label>Nombre</label><input id="s-company" value="${escHtml(S.settings.companyName)}" style="width:100%"></div></div><button class="btn btn-primary btn-sm" onclick="saveSettingsForm()">Guardar</button></div>
   <div class="card"><div class="section-title">📅 Años Fiscales</div><div style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><input id="new-year" type="number" placeholder="2026" style="width:120px" min="2020" max="2099"><button class="btn btn-primary btn-sm" onclick="addYear()">+ Agregar</button></div><div style="display:flex;gap:8px;flex-wrap:wrap">${S.years.map(y=>`<div style="display:flex;align-items:center;gap:6px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:8px;padding:6px 12px"><span style="font-family:var(--serif);font-size:15px;color:var(--accent2);font-weight:600">${y}</span><button onclick="removeYear(${y})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">🗑</button></div>`).join("")}</div></div>
-  <div class="card" style="border-color:rgba(124,58,237,.3)"><div class="section-title">💾 Exportar / Importar</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="exportAllData()">⬇️ Exportar JSON</button><button class="btn btn-ghost btn-sm" onclick="exportTxns()">⬇️ CSV ${S.year}</button><button class="btn btn-ghost btn-sm" onclick="showModal('import-json')">⬆️ Importar JSON</button></div></div>
+  <div class="card" style="border-color:rgba(124,58,237,.3)"><div class="section-title">💾 Exportar / Importar</div><div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--accent2);line-height:1.7">⚠️ Exporta antes de actualizar la app. El backup incluye todos los años.</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="exportAllData()">⬇️ Exportar JSON</button><button class="btn btn-ghost btn-sm" onclick="exportTxns()">⬇️ CSV ${S.year}</button><button class="btn btn-ghost btn-sm" onclick="showModal('import-json')">⬆️ Importar JSON</button></div></div>
   <div class="card" style="border-color:rgba(239,68,68,.3)"><div class="section-title" style="color:#ef4444">⚠️ Zona de Peligro</div><button class="btn btn-danger btn-sm" onclick="clearYearData()">🗑 Borrar datos de ${S.year}</button></div>
   </div>`;
 }
@@ -510,9 +557,10 @@ async function exportAllData(){
   downloadFile(`GenovaFlow_backup_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({version:2,exportDate:new Date().toISOString(),settings:S.settings,coa:S.coa,bankAccounts:S.bankAccounts,years:S.years,balanceEntries:S.balanceEntries,transactions},null,2),"application/json");
   toast("✅ Backup exportado");
 }
-function exportTxns(){let csv="Fecha,Descripción,Categoría,Monto\n";[...S.txns].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{const name=S.coa.find(c=>c.code===t.coaCode)?.name||"";csv+=`${t.date},"${(t.description||"").replace(/"/g,'""')}","${name}",${t.amount}\n`;});downloadFile(`Transacciones_Genova_${S.year}.csv`,csv,"text/csv")}
+function exportTxns(){let csv="Fecha,Descripción,Categoría,Código,Monto\n";[...S.txns].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{const name=S.coa.find(c=>c.code===t.coaCode)?.name||"";csv+=`${t.date},"${(t.description||"").replace(/"/g,'""')}","${name}",${t.coaCode||""},${t.amount}\n`;});downloadFile(`Transacciones_Genova_${S.year}.csv`,csv,"text/csv")}
 function downloadFile(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
 
+// ═══════════ CLAUDE API ═══════════
 async function callClaude(prompt){
   const r=await fetch(PROXY_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:ANTHROPIC_MODEL,max_tokens:1000,messages:[{role:"user",content:prompt}]})});
   if(!r.ok)throw new Error(`API ${r.status}`);const d=await r.json();return d.content.map(b=>b.text||"").join("");
@@ -522,16 +570,17 @@ async function callClaudeWithSystem(system,messages){
   if(!r.ok)throw new Error(`API ${r.status}`);const d=await r.json();return d.content.map(b=>b.text||"").join("");
 }
 
+// ═══════════ MODALES ═══════════
 function showModal(type){
   const lc=S.coa.filter(c=>c.group!=="header");let html="";
-  if(type==="add-tx")html=`<div class="modal"><div class="modal-title">Nueva Entrada Manual</div><div class="input-row"><div><label>Fecha *</label><input type="date" id="m-date" value="${new Date().toISOString().slice(0,10)}"></div><div style="flex:1"><label>Descripción *</label><input id="m-desc" style="width:100%"></div></div><div class="input-row"><div><label>Monto (+ ingreso / - gasto)</label><input type="number" id="m-amount" step="0.01" placeholder="-150.00"></div><div style="flex:1"><label>Contraparte</label><input id="m-counter" style="width:100%"></div></div><div class="input-row"><div style="flex:1"><label>Categoría</label><select id="m-coa" style="width:100%"><option value="">Auto-detectar</option>${lc.map(c=>`<option value="${c.code}">${c.code} – ${escHtml(c.name)}</option>`).join("")}</select></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addManualTx()">Agregar</button></div></div>`;
-  if(type==="add-balance")html=`<div class="modal"><div class="modal-title">Nueva Entrada Balance</div><div class="input-row"><div style="flex:2"><label>Descripción *</label><input id="b-name" style="width:100%"></div><div><label>Tipo</label><select id="b-type"><option value="asset">Activo</option><option value="liability">Pasivo</option></select></div></div><div class="input-row"><div><label>Valor ($)</label><input type="number" id="b-amount" step="100"></div><div style="flex:1"><label>Nota</label><input id="b-note" style="width:100%"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addBalanceEntry()">Agregar</button></div></div>`;
-  if(type==="add-coa")html=`<div class="modal"><div class="modal-title">Nueva Cuenta Contable</div><div class="input-row"><div><label>Código *</label><input id="c-code" style="width:90px"></div><div style="flex:1"><label>Nombre *</label><input id="c-name" style="width:100%"></div></div><div class="input-row"><div><label>Tipo</label><select id="c-type"><option value="expense">expense</option><option value="revenue">revenue</option><option value="asset">asset</option><option value="liability">liability</option><option value="equity">equity</option></select></div><div><label>Grupo</label><input id="c-group" style="width:120px" value="misc"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addCoaEntry()">Agregar</button></div></div>`;
-  if(type==="import-json")html=`<div class="modal"><div class="modal-title">⬆️ Importar Transacciones</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Pega aquí el JSON de transacciones generado desde Claude, o un backup completo de GenovaFlow.</p><textarea id="import-text" rows="10" style="width:100%;resize:vertical;font-family:monospace;font-size:11px" placeholder='[{"id":"...","date":"2025-01-01","description":"Venta equipo","amount":1500}]'></textarea><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="importJSON()">Importar</button></div></div>`;
+  if(type==="add-tx")html=`<div class="modal"><div class="modal-title">Nueva Entrada Manual</div><div class="input-row"><div><label>Fecha *</label><input type="date" id="m-date" value="${new Date().toISOString().slice(0,10)}"></div><div style="flex:1"><label>Descripción *</label><input id="m-desc" style="width:100%"></div></div><div class="input-row"><div><label>Monto (+ crédito / - débito)</label><input type="number" id="m-amount" step="0.01" placeholder="-150.00"></div><div style="flex:1"><label>Contraparte</label><input id="m-counter" style="width:100%"></div></div><div class="input-row"><div style="flex:1"><label>Categoría</label><select id="m-coa" style="width:100%"><option value="">Auto-detectar</option>${lc.map(c=>`<option value="${c.code}">${c.code} – ${escHtml(c.name)}</option>`).join("")}</select></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addManualTx()">Agregar</button></div></div>`;
+  if(type==="add-balance")html=`<div class="modal"><div class="modal-title">Nueva Entrada Balance</div><div class="input-row"><div style="flex:2"><label>Descripción *</label><input id="b-name" style="width:100%" placeholder="Ej: Saldo Banco Popular, Equipo láser..."></div><div><label>Tipo</label><select id="b-type"><option value="asset">Activo</option><option value="liability">Pasivo</option></select></div></div><div class="input-row"><div><label>Valor ($)</label><input type="number" id="b-amount" step="100"></div><div style="flex:1"><label>Nota</label><input id="b-note" style="width:100%"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addBalanceEntry()">Agregar</button></div></div>`;
+  if(type==="add-coa")html=`<div class="modal"><div class="modal-title">Nueva Cuenta Contable</div><div class="input-row"><div><label>Código *</label><input id="c-code" style="width:90px" placeholder="6950"></div><div style="flex:1"><label>Nombre *</label><input id="c-name" style="width:100%"></div></div><div class="input-row"><div><label>Tipo</label><select id="c-type"><option value="expense">expense</option><option value="revenue">revenue</option><option value="asset">asset</option><option value="liability">liability</option><option value="equity">equity</option></select></div><div><label>Grupo</label><input id="c-group" style="width:120px" value="misc"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addCoaEntry()">Agregar</button></div></div>`;
+  if(type==="import-json")html=`<div class="modal"><div class="modal-title">⬆️ Importar Transacciones</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Pega el JSON de transacciones o un backup completo de GenovaFlow.</p><textarea id="import-text" rows="10" style="width:100%;resize:vertical;font-family:monospace;font-size:11px" placeholder='[{"id":"...","date":"2025-01-01","description":"Venta equipo","amount":1500,"coaCode":"4010"}]'></textarea><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="importJSON()">Importar</button></div></div>`;
   const bg=document.createElement("div");bg.className="modal-bg";bg.id="active-modal";bg.innerHTML=html;bg.addEventListener("click",e=>{if(e.target===bg)closeModal()});document.getElementById("modal-container").appendChild(bg);
 }
 function closeModal(){const m=document.getElementById("active-modal");if(m)m.remove()}
-async function addManualTx(){const date=document.getElementById("m-date").value,desc=document.getElementById("m-desc").value.trim(),amount=parseFloat(document.getElementById("m-amount").value);if(!date||!desc||isNaN(amount))return toast("⚠️ Completa los campos requeridos");const tx={id:`manual_${Date.now()}`,date,description:desc,amount,counterparty:document.getElementById("m-counter").value,coaCode:document.getElementById("m-coa").value||autoCategory({description:desc,counterparty:"",amount}),isManual:true};S.txns=[...S.txns,tx];await saveTxns();closeModal();renderContent();updateSidebar();toast("✅ Entrada manual agregada")}
+async function addManualTx(){const date=document.getElementById("m-date").value,desc=document.getElementById("m-desc").value.trim(),amount=parseFloat(document.getElementById("m-amount").value);if(!date||!desc||isNaN(amount))return toast("⚠️ Completa los campos requeridos");const tx={id:`manual_${Date.now()}`,date,description:desc,amount,counterparty:document.getElementById("m-counter").value,coaCode:document.getElementById("m-coa").value||autoCategory({description:desc,counterparty:"",amount}),isManual:true};S.txns=[...S.txns,tx];await saveTxns();closeModal();renderContent();updateSidebar();toast("✅ Entrada agregada")}
 async function addBalanceEntry(){const name=document.getElementById("b-name").value.trim(),amount=parseFloat(document.getElementById("b-amount").value);if(!name||isNaN(amount))return toast("⚠️ Completa los campos");S.balanceEntries=[...S.balanceEntries,{id:`bal_${Date.now()}`,year:S.year,name,type:document.getElementById("b-type").value,amount,note:document.getElementById("b-note")?.value||""}];await saveBalanceEntries();closeModal();renderContent();toast("✅ Entrada agregada")}
 async function addCoaEntry(){const code=document.getElementById("c-code").value.trim(),name=document.getElementById("c-name").value.trim();if(!code||!name)return toast("⚠️ Código y nombre requeridos");if(S.coa.find(c=>c.code===code))return toast("⚠️ Código ya existe");S.coa=[...S.coa,{code,name,type:document.getElementById("c-type").value,group:document.getElementById("c-group").value}].sort((a,b)=>a.code.localeCompare(b.code));await saveCoa();closeModal();renderContent();toast("✅ Cuenta agregada")}
 async function importJSON(){
