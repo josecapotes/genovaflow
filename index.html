@@ -542,7 +542,7 @@ function renderSettings(){
   return`<div style="max-width:640px;display:flex;flex-direction:column;gap:18px">
   <div class="card"><div class="section-title">🏢 Empresa</div><div class="input-row"><div style="flex:1"><label>Nombre</label><input id="s-company" value="${escHtml(S.settings.companyName)}" style="width:100%"></div></div><button class="btn btn-primary btn-sm" onclick="saveSettingsForm()">Guardar</button></div>
   <div class="card"><div class="section-title">📅 Años Fiscales</div><div style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><input id="new-year" type="number" placeholder="2026" style="width:120px" min="2020" max="2099"><button class="btn btn-primary btn-sm" onclick="addYear()">+ Agregar</button></div><div style="display:flex;gap:8px;flex-wrap:wrap">${S.years.map(y=>`<div style="display:flex;align-items:center;gap:6px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:8px;padding:6px 12px"><span style="font-family:var(--serif);font-size:15px;color:var(--accent2);font-weight:600">${y}</span><button onclick="removeYear(${y})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">🗑</button></div>`).join("")}</div></div>
-  <div class="card" style="border-color:rgba(124,58,237,.3)"><div class="section-title">💾 Exportar / Importar</div><div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--accent2);line-height:1.7">⚠️ Exporta antes de actualizar la app. El backup incluye todos los años.</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="exportAllData()">⬇️ Exportar JSON</button><button class="btn btn-ghost btn-sm" onclick="exportTxns()">⬇️ CSV ${S.year}</button><button class="btn btn-ghost btn-sm" onclick="showModal('import-json')">⬆️ Importar JSON</button></div></div>
+  <div class="card" style="border-color:rgba(124,58,237,.3)"><div class="section-title">💾 Exportar / Importar</div><div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--accent2);line-height:1.7">⚠️ Exporta antes de actualizar la app. El backup incluye todos los años.</div>  <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="exportAllData()">⬇️ Exportar JSON</button><button class="btn btn-ghost btn-sm" onclick="exportTxns()">⬇️ CSV ${S.year}</button><button class="btn btn-ghost btn-sm" onclick="showModal('import-json')">⬆️ Importar JSON</button><button class="btn btn-ghost btn-sm" onclick="showModal('import-csv')">⬆️ Importar CSV BP</button></div></div>
   <div class="card" style="border-color:rgba(239,68,68,.3)"><div class="section-title" style="color:#ef4444">⚠️ Zona de Peligro</div><button class="btn btn-danger btn-sm" onclick="clearYearData()">🗑 Borrar datos de ${S.year}</button></div>
   </div>`;
 }
@@ -560,6 +560,115 @@ async function exportAllData(){
 function exportTxns(){let csv="Fecha,Descripción,Categoría,Código,Monto\n";[...S.txns].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{const name=S.coa.find(c=>c.code===t.coaCode)?.name||"";csv+=`${t.date},"${(t.description||"").replace(/"/g,'""')}","${name}",${t.coaCode||""},${t.amount}\n`;});downloadFile(`Transacciones_Genova_${S.year}.csv`,csv,"text/csv")}
 function downloadFile(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
 
+let csvParsed=[];
+function previewCSV(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result;
+    const lines=text.split('\n').filter(l=>l.trim());
+    const preview=document.getElementById('csv-preview');
+    const result=document.getElementById('csv-result');
+    const btn=document.getElementById('csv-import-btn');
+    try{
+      csvParsed=parseCSVBP(text);
+      preview.textContent=`✅ ${file.name} — ${csvParsed.length} transacciones detectadas`;
+      preview.style.color='#a855f7';
+      // Show preview table
+      const credits=csvParsed.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+      const debits=csvParsed.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+      result.innerHTML=`<div style="background:var(--row);border-radius:8px;padding:12px;margin-top:8px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--muted)">Créditos (entradas)</span><span style="color:#a855f7;font-weight:600">${fmt(credits)}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--muted)">Débitos (salidas)</span><span style="color:#ef4444;font-weight:600">${fmt(debits)}</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px"><span style="color:var(--muted)">Neto</span><span style="color:${(credits-debits)>=0?'#a855f7':'#ef4444'};font-weight:600">${fmt(credits-debits)}</span></div>
+        <div style="margin-top:8px;overflow-x:auto"><table style="font-size:10px;width:100%"><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th></tr></thead><tbody>${csvParsed.slice(0,5).map(t=>`<tr><td style="color:var(--muted)">${t.date}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.description)}</td><td><span class="tag tag-purple" style="font-size:9px">${t.coaCode}</span></td><td style="text-align:right;color:${t.amount>=0?'#a855f7':'#ef4444'}">${fmt(t.amount)}</td></tr>`).join('')}${csvParsed.length>5?`<tr><td colspan="4" style="color:var(--muted);text-align:center">... y ${csvParsed.length-5} más</td></tr>`:''}</tbody></table></div>
+      </div>`;
+      btn.disabled=false;
+    }catch(err){
+      preview.textContent=`❌ Error: ${err.message}`;
+      preview.style.color='#ef4444';
+      btn.disabled=true;
+    }
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function parseCSVBP(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
+  const txns=[];
+  // Detect header row
+  let headerIdx=-1;
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i].toLowerCase();
+    if((l.includes('fecha')||l.includes('date'))&&(l.includes('descripci')||l.includes('desc'))){
+      headerIdx=i;break;
+    }
+  }
+  if(headerIdx===-1)throw new Error("No se encontró la fila de encabezados. Verifica el formato del CSV.");
+  const headers=parseCSVLine(lines[headerIdx]).map(h=>h.toLowerCase().trim());
+  const idxFecha=headers.findIndex(h=>h.includes('fecha')||h.includes('date'));
+  const idxDesc=headers.findIndex(h=>h.includes('descripci')||h.includes('desc'));
+  const idxDeb=headers.findIndex(h=>h.includes('d\u00e9bito')||h.includes('debito')||h.includes('cargo')||h.includes('debit'));
+  const idxCred=headers.findIndex(h=>h.includes('cr\u00e9dito')||h.includes('credito')||h.includes('abono')||h.includes('credit'));
+  const idxMonto=headers.findIndex(h=>h.includes('monto')||h.includes('amount')||h.includes('cantidad'));
+  if(idxFecha===-1||idxDesc===-1)throw new Error("No se encontraron columnas de Fecha o Descripción.");
+  for(let i=headerIdx+1;i<lines.length;i++){
+    const cols=parseCSVLine(lines[i]);
+    if(cols.length<2)continue;
+    const dateRaw=cols[idxFecha]?.trim()||"";
+    const desc=cols[idxDesc]?.trim()||"";
+    if(!dateRaw||!desc)continue;
+    // Parse date MM/DD/YYYY or DD/MM/YYYY or MM-DD-YYYY
+    let date="";
+    const dm=dateRaw.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if(dm){
+      const y=dm[3].length===2?`20${dm[3]}`:dm[3];
+      const m=dm[1].padStart(2,'0');
+      const d=dm[2].padStart(2,'0');
+      date=`${y}-${m}-${d}`;
+    }else continue;
+    let amount=0;
+    if(idxCred>=0&&idxDeb>=0){
+      const cred=parseFloat((cols[idxCred]||"0").replace(/[$,\s]/g,""))||0;
+      const deb=parseFloat((cols[idxDeb]||"0").replace(/[$,\s]/g,""))||0;
+      amount=cred>0?cred:-deb;
+    }else if(idxMonto>=0){
+      amount=parseFloat((cols[idxMonto]||"0").replace(/[$,\s]/g,""))||0;
+    }else continue;
+    if(amount===0)continue;
+    const tx={id:`bp_${date}_${i}_${Math.random().toString(36).slice(2,6)}`,date,description:desc,counterparty:"",amount,note:"",coaCode:autoCategory({description:desc,counterparty:"",amount}),isManual:false};
+    txns.push(tx);
+  }
+  if(txns.length===0)throw new Error("No se encontraron transacciones válidas en el CSV.");
+  return txns;
+}
+
+function parseCSVLine(line){
+  const result=[];let cur="";let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===','&&!inQ){result.push(cur.replace(/^"|"$/g,'').trim());cur="";}
+    else cur+=c;
+  }
+  result.push(cur.replace(/^"|"$/g,'').trim());
+  return result;
+}
+
+async function importCSV(){
+  if(!csvParsed.length)return toast("⚠️ No hay datos para importar");
+  const dupKey=t=>`${t.date}|${t.description}|${t.amount}`;
+  const newIds=new Set(csvParsed.map(t=>t.id));
+  const newKeys=new Set(csvParsed.map(t=>dupKey(t)));
+  const existing=S.txns.filter(t=>!newIds.has(t.id)&&!newKeys.has(dupKey(t)));
+  S.txns=[...existing,...csvParsed];
+  await saveTxns();
+  if(!S.years.includes(S.year)){S.years=[...S.years,S.year].sort();await saveYears();}
+  closeModal();updateSidebar();renderContent();
+  toast(`✅ ${csvParsed.length} transacciones importadas desde CSV`);
+  csvParsed=[];
+}
+
 // ═══════════ CLAUDE API ═══════════
 async function callClaude(prompt){
   const r=await fetch(PROXY_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:ANTHROPIC_MODEL,max_tokens:1000,messages:[{role:"user",content:prompt}]})});
@@ -576,7 +685,8 @@ function showModal(type){
   if(type==="add-tx")html=`<div class="modal"><div class="modal-title">Nueva Entrada Manual</div><div class="input-row"><div><label>Fecha *</label><input type="date" id="m-date" value="${new Date().toISOString().slice(0,10)}"></div><div style="flex:1"><label>Descripción *</label><input id="m-desc" style="width:100%"></div></div><div class="input-row"><div><label>Monto (+ crédito / - débito)</label><input type="number" id="m-amount" step="0.01" placeholder="-150.00"></div><div style="flex:1"><label>Contraparte</label><input id="m-counter" style="width:100%"></div></div><div class="input-row"><div style="flex:1"><label>Categoría</label><select id="m-coa" style="width:100%"><option value="">Auto-detectar</option>${lc.map(c=>`<option value="${c.code}">${c.code} – ${escHtml(c.name)}</option>`).join("")}</select></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addManualTx()">Agregar</button></div></div>`;
   if(type==="add-balance")html=`<div class="modal"><div class="modal-title">Nueva Entrada Balance</div><div class="input-row"><div style="flex:2"><label>Descripción *</label><input id="b-name" style="width:100%" placeholder="Ej: Saldo Banco Popular, Equipo láser..."></div><div><label>Tipo</label><select id="b-type"><option value="asset">Activo</option><option value="liability">Pasivo</option></select></div></div><div class="input-row"><div><label>Valor ($)</label><input type="number" id="b-amount" step="100"></div><div style="flex:1"><label>Nota</label><input id="b-note" style="width:100%"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addBalanceEntry()">Agregar</button></div></div>`;
   if(type==="add-coa")html=`<div class="modal"><div class="modal-title">Nueva Cuenta Contable</div><div class="input-row"><div><label>Código *</label><input id="c-code" style="width:90px" placeholder="6950"></div><div style="flex:1"><label>Nombre *</label><input id="c-name" style="width:100%"></div></div><div class="input-row"><div><label>Tipo</label><select id="c-type"><option value="expense">expense</option><option value="revenue">revenue</option><option value="asset">asset</option><option value="liability">liability</option><option value="equity">equity</option></select></div><div><label>Grupo</label><input id="c-group" style="width:120px" value="misc"></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="addCoaEntry()">Agregar</button></div></div>`;
-  if(type==="import-json")html=`<div class="modal"><div class="modal-title">⬆️ Importar Transacciones</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Pega el JSON de transacciones o un backup completo de GenovaFlow.</p><textarea id="import-text" rows="10" style="width:100%;resize:vertical;font-family:monospace;font-size:11px" placeholder='[{"id":"...","date":"2025-01-01","description":"Venta equipo","amount":1500,"coaCode":"4010"}]'></textarea><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="importJSON()">Importar</button></div></div>`;
+  if(type==="import-json")html=`<div class="modal"><div class="modal-title">⬆️ Importar Transacciones (JSON)</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Pega el JSON de transacciones o un backup completo de GenovaFlow.</p><textarea id="import-text" rows="10" style="width:100%;resize:vertical;font-family:monospace;font-size:11px" placeholder='[{"id":"...","date":"2025-01-01","description":"Venta equipo","amount":1500,"coaCode":"4010"}]'></textarea><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="importJSON()">Importar</button></div></div>`;
+  if(type==="import-csv")html=`<div class="modal"><div class="modal-title">⬆️ Importar CSV – Banco Popular</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Selecciona el archivo CSV exportado desde Banco Popular. Las columnas requeridas son: <strong>Fecha, Descripción, Débitos, Créditos</strong>.</p><div style="border:2px dashed var(--border);border-radius:10px;padding:30px;text-align:center;margin-bottom:14px"><input type="file" id="csv-file" accept=".csv,.txt" style="display:none" onchange="previewCSV(this)"><button class="btn btn-ghost" onclick="document.getElementById('csv-file').click()">📂 Seleccionar archivo CSV</button><div id="csv-preview" style="margin-top:12px;font-size:11px;color:var(--muted)">Ningún archivo seleccionado</div></div><div id="csv-result"></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" id="csv-import-btn" onclick="importCSV()" disabled>Importar</button></div></div>`;
   const bg=document.createElement("div");bg.className="modal-bg";bg.id="active-modal";bg.innerHTML=html;bg.addEventListener("click",e=>{if(e.target===bg)closeModal()});document.getElementById("modal-container").appendChild(bg);
 }
 function closeModal(){const m=document.getElementById("active-modal");if(m)m.remove()}
